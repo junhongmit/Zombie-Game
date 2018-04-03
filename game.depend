@@ -1,0 +1,110 @@
+# depslib dependency file v1.0
+1453739044 source:d:\game\main.c
+	<stdio.h>
+	<stdlib.h>
+	<Windows.h>
+	<stdbool.h>
+	<tchar.h>
+	"window.h"
+
+1457541270 d:\game\window.h
+	<windows.h>
+	<stdbool.h>
+	"useful.h"
+
+1458753138 source:d:\game\main.cpp
+	<stdio.h>
+	<stdlib.h>
+	<Windows.h>
+	<stdbool.h>
+	<tchar.h>
+	"window.h"
+	"useful.h"
+	"sound.h"
+	"AI.h"
+	"Blood.h"
+	"smog.h"
+	"save.h"
+	<math.h>
+	<time.h>
+
+1458749858 source:d:\game\window.cpp
+	<windows.h>
+	"window.h"
+	"useful.h"
+	<stdio.h>
+	<math.h>
+
+1458783890 source:d:\game\useful.cpp
+	<windows.h>
+	<windowsx.h>
+	<commctrl.h>
+	<GdiPlus.h>
+	"useful.h"
+	<stdlib.h>
+	<stdio.h>
+	<winuser.h>
+
+1455629150 d:\game\useful.h
+	<windows.h>
+	<stdbool.h>
+	<math.h>
+
+1457422089 source:d:\game\ai.cpp
+	"AI.h"
+	"window.h"
+	"useful.h"
+	<stdbool.h>
+	<stdio.h>
+
+1457182845 d:\game\ai.h
+	<windows.h>
+	<stdbool.h>
+	<math.h>
+	"window.h"
+
+1457186946 d:\game\sound.h
+	<windows.h>
+	<stdbool.h>
+	<math.h>
+	<stdio.h>
+
+1458750861 source:d:\game\sound.cpp
+	"sound.h"
+	"useful.h"
+
+1455630181 source:d:\game\blood.cpp
+	"AI.h"
+	"window.h"
+	"useful.h"
+	<stdbool.h>
+	<stdio.h>
+
+1455294087 d:\game\blood.h
+	"window.h"
+	"useful.h"
+	<stdbool.h>
+	<stdio.h>
+
+1455630176 source:d:\game\smog.cpp
+	"AI.h"
+	"window.h"
+	"useful.h"
+	<stdbool.h>
+	<stdio.h>
+
+1455423493 d:\game\smog.h
+	"window.h"
+	"useful.h"
+	<stdbool.h>
+	<stdio.h>
+
+1455893666 d:\game\save.h
+	"window.h"
+	"useful.h"
+	<stdbool.h>
+	<stdio.h>
+
+1457544342 source:d:\game\save.cpp
+	"save.h"
+
