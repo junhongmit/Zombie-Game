@@ -1,6 +1,7 @@
 #include <windows.h>
 #include <windowsx.h>
 #include <commctrl.h>
+#include <propidl.h>
 #include <GdiPlus.h>
 #include "useful.h"
 #include <stdlib.h>
@@ -13,7 +14,7 @@ LPImaButton now[10000];
 int ibsum;
 UINT DPI_x,DPI_y;
 Gdiplus::GdiplusStartupInput vStartupInput;
-ULONG vToken;
+ULONG_PTR vToken;
 typedef enum _MONITOR_DPI_TYPE {
   MDT_EFFECTIVE_DPI  = 0,
   MDT_ANGULAR_DPI    = 1,
@@ -182,15 +183,11 @@ void loadpic(char *path,tbmp *m)
     GdipDisposeImage(bmp);
     free(s);
 }
-LRESULT WINAPI MouseProc(int nCode,WPARAM WParam,LPARAM LParam)
+void DispatchImaButtonMouse(UINT message, POINT screenPoint)
 {
-    MSLLHOOKSTRUCT *a;
     int i;
     for (i=1; i<=ibsum; i++) {
-        a=(MSLLHOOKSTRUCT*)LParam;
-        //a->pt.x=round(a->pt.x*96.0/120.0);
-        //a->pt.y=round(a->pt.y*96.0/120.0);
-        PostMessage(now[i]->hwindow,WParam,100000000,MAKELONG(a->pt.x,a->pt.y));
+        PostMessage(now[i]->hwindow,message,100000000,MAKELONG(screenPoint.x,screenPoint.y));
     }
 }
 void ReadConfig2(char *path,ImaButton *item)
@@ -388,7 +385,13 @@ LRESULT CALLBACK ImabuttonProc(HWND Window,UINT AMessage,WPARAM WParam,LPARAM LP
             }
             break;
         case WM_MOUSEMOVE:
-            if (ib!=NULL)
+            if (ib!=NULL) {
+                if (WParam!=100000000) {
+                    p.x=LOWORD(LParam); p.y=HIWORD(LParam);
+                    ClientToScreen(Window,&p);
+                    LParam=MAKELONG(p.x,p.y);
+                    WParam=100000000;
+                }
                 if (WParam==100000000) {
                     x=GET_X_LPARAM(LParam); y=GET_Y_LPARAM(LParam);
                     GetWindowRect(ib->hwindow,&r);
@@ -408,9 +411,16 @@ LRESULT CALLBACK ImabuttonProc(HWND Window,UINT AMessage,WPARAM WParam,LPARAM LP
                     }
                     return 0;
                 }
+            }
             break;
         case WM_LBUTTONDOWN:
-            if (ib!=NULL)
+            if (ib!=NULL) {
+                if (WParam!=100000000) {
+                    p.x=LOWORD(LParam); p.y=HIWORD(LParam);
+                    ClientToScreen(Window,&p);
+                    LParam=MAKELONG(p.x,p.y);
+                    WParam=100000000;
+                }
                 if (WParam==100000000) {
                     x=LOWORD(LParam); y=HIWORD(LParam);
                     GetWindowRect(ib->hwindow,&r);
@@ -423,9 +433,16 @@ LRESULT CALLBACK ImabuttonProc(HWND Window,UINT AMessage,WPARAM WParam,LPARAM LP
                     }
                     return 0;
                 }
+            }
             break;
         case WM_LBUTTONUP:
-            if (ib!=NULL)
+            if (ib!=NULL) {
+                if (WParam!=100000000) {
+                    p.x=LOWORD(LParam); p.y=HIWORD(LParam);
+                    ClientToScreen(Window,&p);
+                    LParam=MAKELONG(p.x,p.y);
+                    WParam=100000000;
+                }
                 if (WParam==100000000) {
                     x=LOWORD(LParam); y=HIWORD(LParam);
                     p.x=x; p.y=y;
@@ -442,6 +459,7 @@ LRESULT CALLBACK ImabuttonProc(HWND Window,UINT AMessage,WPARAM WParam,LPARAM LP
                     }
                     return 0;
                 }
+            }
             break;
     }
     return DefWindowProc(Window, AMessage, WParam, LParam);
@@ -471,7 +489,6 @@ int Useful_Init()
     HMODULE hModule2=GetModuleHandle("SHCore.dll");
     ImaButtonRegister();
     ibsum=0;
-    SetWindowsHookEx(WH_MOUSE_LL,&MouseProc,Hinstance,0);
     if (hModule2!=NULL) {
         SetProcessDpiAwareness=(pSetProcessDpiAwareness)GetProcAddress(hModule2, "SetProcessDpiAwareness");
         SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);

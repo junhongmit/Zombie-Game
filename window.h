@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include "useful.h"
 const double PI=3.141592653/180;
-typedef  byte colorbyte;
+typedef unsigned char colorbyte;
 typedef struct {
     colorbyte *buf;
     DWORD size;
@@ -19,7 +19,7 @@ typedef struct {
     bool toward,drop,fire,walktoward,reload,zhuang;
     double guna,v0,v1,t,jiao,showangle,up,canup,hp;
     COLORREF showcolor;
-    byte tans;
+    unsigned char tans;
     LARGE_INTEGER nowtime,lasttime;
 } people;
 typedef struct {

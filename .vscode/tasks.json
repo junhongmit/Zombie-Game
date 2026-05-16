@@ -1,0 +1,43 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "cmake: configure",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "-S",
+                ".",
+                "-B",
+                "build",
+                "-G",
+                "Ninja",
+                "-D",
+                "CMAKE_BUILD_TYPE=Debug"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "cmake: build",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build",
+                "build"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "dependsOn": "cmake: configure",
+            "problemMatcher": "$gcc"
+        },
+        {
+            "label": "run game",
+            "type": "shell",
+            "command": ".\\build\\bin\\zombie_game.exe",
+            "dependsOn": "cmake: build",
+            "problemMatcher": []
+        }
+    ]
+}

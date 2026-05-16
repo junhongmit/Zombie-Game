@@ -49,6 +49,7 @@ void makefont(int height,HFONT *thefont);
 void MakeFont(char *name,int height,HFONT *thefont);
 void loadpic(char *path,tbmp *m);
 void CreateImaButton(ImaButton *item,char *name,HWND father,DWORD Style,int x,int y,int width,int height,int num,char *imapath);
+void DispatchImaButtonMouse(UINT message, POINT screenPoint);
 int Useful_Init();
 void Useful_Final();
 

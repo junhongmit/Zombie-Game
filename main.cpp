@@ -330,6 +330,7 @@ LRESULT CALLBACK WindowProc(HWND Window,UINT AMessage,WPARAM WParam,LPARAM LPara
     HDC dc;
     PAINTSTRUCT ps;
     RECT r;
+    POINT p;
     bool bo,bk;
     double jiao,deltat;
     int now,nowx,nowy,i,j,k,x;
@@ -1025,6 +1026,9 @@ LRESULT CALLBACK WindowProc(HWND Window,UINT AMessage,WPARAM WParam,LPARAM LPara
             }
             break;
         case WM_MOUSEMOVE:
+            p.x=LOWORD(LParam); p.y=HIWORD(LParam);
+            ClientToScreen(Window,&p);
+            DispatchImaButtonMouse(WM_MOUSEMOVE,p);
             if (!pause&&!quit) {
             mousex=LOWORD(LParam); mousey=HIWORD(LParam);
             if (mann.hp>0) {
@@ -1044,6 +1048,9 @@ LRESULT CALLBACK WindowProc(HWND Window,UINT AMessage,WPARAM WParam,LPARAM LPara
             }
             break;
         case WM_LBUTTONDOWN:
+            p.x=LOWORD(LParam); p.y=HIWORD(LParam);
+            ClientToScreen(Window,&p);
+            DispatchImaButtonMouse(WM_LBUTTONDOWN,p);
             if (!pause&&!quit) {
             if (mann.hp>0&&nextfire) {
                 if (hweapon[weanow].running)
@@ -1057,6 +1064,9 @@ LRESULT CALLBACK WindowProc(HWND Window,UINT AMessage,WPARAM WParam,LPARAM LPara
             }
             break;
         case WM_LBUTTONUP:
+            p.x=LOWORD(LParam); p.y=HIWORD(LParam);
+            ClientToScreen(Window,&p);
+            DispatchImaButtonMouse(WM_LBUTTONUP,p);
             mann.fire=false;//print;
             if (hweapon[weanow].running) KillTimer(hWindow,2);
             break;

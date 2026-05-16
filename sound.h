@@ -2,6 +2,7 @@
 #define _SOUND_H_
 
 #include <windows.h>
+#include <mmsystem.h>
 #include <stdbool.h>
 #include <math.h>
 #include <stdio.h>

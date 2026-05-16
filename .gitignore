@@ -1,0 +1,8 @@
+build/
+.vs/
+.vscode/.browse.VC.db*
+.vscode/ipch/
+*.user
+*.opensdf
+*.sdf
+*.VC.db
