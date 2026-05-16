@@ -11,7 +11,8 @@ bool Assets::load(SDL_Renderer* renderer)
         building.load(renderer, "image/building1.png", true) &&
         hero.load(renderer, "image/man1.png", true) &&
         weapon_glock.load(renderer, "image/hold glock.png", true) &&
-        zombie.load(renderer, "image/zom1.png", true);
+        zombie.load(renderer, "image/zom1.png", true) &&
+        zombie_mask.load("image/zom1.png");
 }
 
 } // namespace zg

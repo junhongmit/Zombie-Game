@@ -1,6 +1,7 @@
 #include "Renderer2D.h"
 
 #include "Assets.h"
+#include "Bullet.h"
 #include "Camera.h"
 #include "Constants.h"
 #include "MathUtil.h"
@@ -29,6 +30,8 @@ void Renderer2D::render_scene(
     const Player& player,
     const Zombie* zombies,
     int zombie_count,
+    const Bullet* bullets,
+    int bullet_count,
     const Camera& camera)
 {
     render_fullscreen(assets.sky);
@@ -40,7 +43,9 @@ void Renderer2D::render_scene(
     for (int i = 0; i < zombie_count; ++i) {
         render_zombie(assets.zombie, zombies[i], camera);
     }
-    render_aim_line(player, camera);
+    for (int i = 0; i < bullet_count; ++i) {
+        render_bullet(bullets[i], camera);
+    }
     render_player(assets.hero, player, camera);
     render_weapon(assets.weapon_glock, player, camera);
 }
@@ -110,26 +115,60 @@ void Renderer2D::render_weapon(const Texture& weapon, const Player& player, cons
     SDL_RenderTextureRotated(renderer_, weapon.get(), &src, &dst, angle_degrees, &pivot, flip);
 }
 
-void Renderer2D::render_aim_line(const Player& player, const Camera& camera)
+void Renderer2D::render_bullet(const Bullet& bullet, const Camera& camera)
 {
-    const float pivot_x = std::round(player.x - camera.x + 9.0f);
-    const float pivot_y = std::round(player.y + 13.0f);
-    const float aim_x = std::round(player.aim_world_x - camera.x);
-    const float aim_y = std::round(player.aim_world_y);
+    if (!bullet.active) {
+        return;
+    }
 
-    SDL_SetRenderDrawColor(renderer_, 222, 218, 185, 160);
-    SDL_RenderLine(renderer_, pivot_x, pivot_y, aim_x, aim_y);
-    SDL_RenderLine(renderer_, aim_x - 4.0f, aim_y, aim_x + 4.0f, aim_y);
-    SDL_RenderLine(renderer_, aim_x, aim_y - 4.0f, aim_x, aim_y + 4.0f);
+    const float start_x = std::round(bullet.x - camera.x);
+    const float start_y = std::round(bullet.y);
+    const float length = 18.0f;
+    const float speed = std::sqrt(bullet.vx * bullet.vx + bullet.vy * bullet.vy);
+    if (speed <= 0.0f) {
+        return;
+    }
+
+    const float end_x = start_x - bullet.vx / speed * length;
+    const float end_y = start_y - bullet.vy / speed * length;
+
+    SDL_SetRenderDrawColor(renderer_, 248, 226, 121, 255);
+    SDL_RenderLine(renderer_, start_x, start_y, end_x, end_y);
 }
 
 void Renderer2D::render_zombie(const Texture& texture, const Zombie& zombie, const Camera& camera)
 {
-    SDL_FRect src{static_cast<float>(zombie.walk_frame * 17), 0.0f, 18.0f, 32.0f};
-    SDL_FRect dst{std::round(zombie.x - camera.x), zombie.y, 18.0f, 32.0f};
-    const SDL_FPoint center{9.0f, 16.0f};
-    const SDL_FlipMode flip = zombie.walking_right ? SDL_FLIP_NONE : SDL_FLIP_HORIZONTAL;
-    SDL_RenderTextureRotated(renderer_, texture.get(), &src, &dst, 0.0, &center, flip);
+    if (!zombie.active) {
+        return;
+    }
+
+    if (zombie.hit_flash > 0.0f) {
+        SDL_SetTextureColorMod(texture.get(), 255, 90, 90);
+    }
+
+    if (zombie.alive) {
+        SDL_FRect src{static_cast<float>(zombie.walk_frame * 17), 0.0f, kZombieWidth, kZombieHeight};
+        SDL_FRect dst{std::round(zombie.x - camera.x), zombie.y, kZombieWidth, kZombieHeight};
+        const SDL_FPoint center{9.0f, 16.0f};
+        const SDL_FlipMode flip = zombie.walking_right ? SDL_FLIP_NONE : SDL_FLIP_HORIZONTAL;
+        SDL_RenderTextureRotated(renderer_, texture.get(), &src, &dst, 0.0, &center, flip);
+    } else {
+        const SDL_FRect src{477.0f, 0.0f, 17.0f, 32.0f};
+        const SDL_FRect dst{
+            std::round(zombie.x - camera.x),
+            zombie.y + kZombieCorpseYOffset,
+            kZombieCorpseWidth,
+            kZombieCorpseHeight
+        };
+        const SDL_FPoint center{kZombieCorpseWidth * 0.5f, kZombieCorpseHeight * 0.5f};
+        SDL_SetTextureAlphaMod(texture.get(), static_cast<Uint8>(std::round(zombie.corpse_alpha)));
+        SDL_RenderTextureRotated(renderer_, texture.get(), &src, &dst, zombie.corpse_angle_degrees, &center, SDL_FLIP_NONE);
+        SDL_SetTextureAlphaMod(texture.get(), 255);
+    }
+
+    if (zombie.hit_flash > 0.0f) {
+        SDL_SetTextureColorMod(texture.get(), 255, 255, 255);
+    }
 }
 
 } // namespace zg

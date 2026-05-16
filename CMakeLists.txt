@@ -46,10 +46,13 @@ find_package(SDL3_image CONFIG REQUIRED)
 
 add_executable(zombie_sdl3 WIN32
     src/sdl3/Assets.cpp
+    src/sdl3/Bullet.cpp
     src/sdl3/Camera.cpp
+    src/sdl3/CollisionMap.cpp
     src/sdl3/Input.cpp
     src/sdl3/Player.cpp
     src/sdl3/Renderer2D.cpp
+    src/sdl3/SurfaceMask.cpp
     src/sdl3/Texture.cpp
     src/sdl3/Zombie.cpp
     src/sdl3/main.cpp

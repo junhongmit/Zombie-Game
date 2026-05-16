@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Texture.h"
+#include "SurfaceMask.h"
 
 struct SDL_Renderer;
 
@@ -15,6 +16,7 @@ struct Assets {
     Texture hero;
     Texture weapon_glock;
     Texture zombie;
+    SurfaceMask zombie_mask;
 
     bool load(SDL_Renderer* renderer);
 };
