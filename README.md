@@ -63,6 +63,12 @@ In **MSYS2 UCRT64**, run:
 pacman -S --needed mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-gdb mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja mingw-w64-ucrt-x86_64-pkgconf git
 ```
 
+For the SDL3 refactor branch, also install:
+
+```bash
+pacman -S --needed mingw-w64-ucrt-x86_64-sdl3 mingw-w64-ucrt-x86_64-sdl3-image
+```
+
 MSYS2 package names matter. For native Windows builds, prefer packages with the `mingw-w64-ucrt-x86_64-` prefix.
 
 ## 4. Add Tools To Windows PATH
@@ -185,6 +191,13 @@ Useful commands:
 ```powershell
 cmake --build build
 .\build\bin\zombie_game.exe
+```
+
+SDL3 prototype target:
+
+```powershell
+cmake --build build --target zombie_sdl3
+.\build\bin\zombie_sdl3.exe
 ```
 
 Clean rebuild:

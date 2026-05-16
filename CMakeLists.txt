@@ -40,3 +40,19 @@ target_link_libraries(zombie_game PRIVATE
 set_target_properties(zombie_game PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
+
+find_package(SDL3 CONFIG REQUIRED)
+find_package(SDL3_image CONFIG REQUIRED)
+
+add_executable(zombie_sdl3 WIN32
+    src/sdl3/main.cpp
+)
+
+target_link_libraries(zombie_sdl3 PRIVATE
+    SDL3::SDL3
+    SDL3_image::SDL3_image
+)
+
+set_target_properties(zombie_sdl3 PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
