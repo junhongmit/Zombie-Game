@@ -1,12 +1,14 @@
 # ZombieGame
 
-A pixel-art side-scrolling zombie survival shooter originally built with Win32/GDI.
+A pixel-art side-scrolling zombie survival shooter now maintained on an SDL3-based mainline.
+
+The old Win32/GDI practice version is preserved under [archived/legacy_win32](D:/Code/game/archived/legacy_win32) as a historical baseline, but active development now happens in `src/` and `assets/`.
 
 ## Recommended Windows Setup
 
-Develop this project as a native Windows program. WSL2 is useful for many tools, but the current game uses Win32 APIs, Windows audio, and Windows-style resource paths, so native Windows builds are simpler.
+Develop this project as a native Windows program.
 
-The recommended lightweight stack is:
+Recommended stack:
 
 - VS Code
 - MSYS2 UCRT64
@@ -25,7 +27,7 @@ Recommended extensions:
 - C/C++ by Microsoft
 - CMake Tools by Microsoft
 
-Optional but useful:
+Optional:
 
 - Git for Windows: https://git-scm.com/download/win
 
@@ -35,25 +37,19 @@ Install MSYS2 from:
 
 https://www.msys2.org/
 
-Use the default install path unless you have a reason not to:
+Use the default install path:
 
 ```text
 C:\msys64
 ```
 
-Open **MSYS2 UCRT64** from the Windows Start menu. Make sure it is the UCRT64 shell, not plain MSYS.
-
-Update MSYS2 first:
+Open **MSYS2 UCRT64** and update:
 
 ```bash
 pacman -Syu
 ```
 
-If the shell asks you to close and reopen it, close it, open **MSYS2 UCRT64** again, then run:
-
-```bash
-pacman -Syu
-```
+If prompted, reopen **MSYS2 UCRT64** and run it again.
 
 ## 3. Install The Toolchain
 
@@ -63,7 +59,17 @@ In **MSYS2 UCRT64**, run:
 pacman -S --needed mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-gdb mingw-w64-ucrt-x86_64-cmake mingw-w64-ucrt-x86_64-ninja mingw-w64-ucrt-x86_64-pkgconf git
 ```
 
-MSYS2 package names matter. For native Windows builds, prefer packages with the `mingw-w64-ucrt-x86_64-` prefix.
+Install SDL dependencies:
+
+```bash
+pacman -S --needed mingw-w64-ucrt-x86_64-sdl3 mingw-w64-ucrt-x86_64-sdl3-image mingw-w64-ucrt-x86_64-sdl3-ttf
+```
+
+For optional Python asset scripts:
+
+```powershell
+python -m pip install pillow
+```
 
 ## 4. Add Tools To Windows PATH
 
@@ -73,9 +79,9 @@ Add this folder to your Windows user PATH:
 C:\msys64\ucrt64\bin
 ```
 
-Then close and reopen PowerShell or VS Code.
+Then restart PowerShell and VS Code.
 
-Verify from a normal PowerShell terminal:
+Verify:
 
 ```powershell
 gcc --version
@@ -85,25 +91,19 @@ cmake --version
 ninja --version
 ```
 
-If these commands are not found, PATH has not refreshed or `C:\msys64\ucrt64\bin` was not added correctly.
-
-If you want to use Git from PowerShell or VS Code's Source Control panel, install Git for Windows as well. The `git` package installed inside MSYS2 is useful inside MSYS2 shells, but Git for Windows is the least surprising option for normal Windows terminals.
-
 ## 5. Open The Project
 
-Open this folder in VS Code:
+Open:
 
 ```text
 D:\Code\game
 ```
 
-Then build from the VS Code command palette:
+Then run:
 
 ```text
 Tasks: Run Build Task
 ```
-
-Or use the terminal commands below.
 
 ## Build From Terminal
 
@@ -115,7 +115,7 @@ cmake --build build
 .\build\bin\zombie_game.exe
 ```
 
-For a release build:
+Release build:
 
 ```powershell
 cmake -S . -B build-release -G Ninja -D CMAKE_BUILD_TYPE=Release
@@ -125,69 +125,46 @@ cmake --build build-release
 
 ## Debug In VS Code
 
-Use the included debug configuration:
+Use:
 
 ```text
 Run and Debug -> Debug zombie_game
 ```
 
-This calls the default CMake build task first, then launches:
+That launches:
 
 ```text
 build\bin\zombie_game.exe
 ```
 
-## Common Setup Issues
+with the workspace root as `cwd`, so the runtime can resolve `assets/`, `music/`, and `sound/`.
 
-### CMake Picks Visual Studio Instead Of Ninja
+## Resource Layout
 
-Pass the generator explicitly:
+Active SDL3 resources live under:
 
-```powershell
-cmake -S . -B build -G Ninja
-```
+- `assets/backgrounds`
+- `assets/characters`
+- `assets/collision`
+- `assets/effects`
+- `assets/ui`
+- `assets/weapons`
 
-If `build/` was already configured with a different generator, delete `build/` and configure again.
+See [ASSET_SPEC.md](D:/Code/game/docs/ASSET_SPEC.md) for the current storage conventions.
 
-### Commands Work In MSYS2 But Not PowerShell
+## Asset Packing
 
-Add this to Windows PATH:
-
-```text
-C:\msys64\ucrt64\bin
-```
-
-Then restart PowerShell and VS Code.
-
-### Wrong MSYS2 Shell
-
-Use **MSYS2 UCRT64**. Avoid installing compiler packages into plain MSYS for this project.
-
-### Resource Files Not Found
-
-Run the executable with the project root as the working directory. The current game loads files such as:
-
-```text
-image\...
-music\...
-sound\...
-save.dat
-```
-
-The VS Code launch configuration already sets `cwd` to the workspace folder.
-
-## Current Build Target
-
-The current target still uses the original Win32/GDI renderer. See `docs/ROADMAP.md` for the planned SDL3/raylib modernization path.
-
-Useful commands:
+If you want to pack loose frames into a strip:
 
 ```powershell
-cmake --build build
-.\build\bin\zombie_game.exe
+python tools/pack_spritesheet.py `
+  --input-dir some/source/folder `
+  --pattern "boom1_*.bmp" `
+  --output-image assets/effects/boom1_strip.png `
+  --output-meta assets/effects/boom1_strip.sheet
 ```
 
-Clean rebuild:
+## Clean Rebuild
 
 ```powershell
 Remove-Item -Recurse -Force build

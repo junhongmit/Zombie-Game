@@ -6,35 +6,38 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+find_package(SDL3 CONFIG REQUIRED)
+find_package(SDL3_image CONFIG REQUIRED)
+find_package(SDL3_ttf CONFIG REQUIRED)
+
 add_executable(zombie_game WIN32
-    AI.cpp
-    blood.cpp
-    main.cpp
-    save.cpp
-    smog.cpp
-    sound.cpp
-    useful.cpp
-    window.cpp
+    src/AssetPaths.cpp
+    src/Assets.cpp
+    src/Bullet.cpp
+    src/Camera.cpp
+    src/CollisionMap.cpp
+    src/Effects.cpp
+    src/Grenade.cpp
+    src/HudRenderer.cpp
+    src/HumanoidBody.cpp
+    src/Input.cpp
+    src/Player.cpp
+    src/Renderer2D.cpp
+    src/SoundSystem.cpp
+    src/SpriteCatalog.cpp
+    src/SpriteSheet.cpp
+    src/SurfaceMask.cpp
+    src/Texture.cpp
+    src/Weapon.cpp
+    src/Zombie.cpp
+    src/ZombieDirector.cpp
+    src/main.cpp
 )
-
-target_compile_definitions(zombie_game PRIVATE
-    WIN32_LEAN_AND_MEAN
-)
-
-if(MSVC)
-    target_compile_options(zombie_game PRIVATE /W3 /permissive-)
-else()
-    target_compile_options(zombie_game PRIVATE -Wall -Wextra)
-endif()
 
 target_link_libraries(zombie_game PRIVATE
-    gdi32
-    user32
-    kernel32
-    comctl32
-    winmm
-    msimg32
-    gdiplus
+    SDL3::SDL3
+    SDL3_image::SDL3_image
+    SDL3_ttf::SDL3_ttf
 )
 
 set_target_properties(zombie_game PROPERTIES
