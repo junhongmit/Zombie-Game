@@ -1,5 +1,6 @@
 build/
 CMakeFiles/
+obj/
 .vs/
 .vscode/.browse.VC.db*
 .vscode/ipch/
@@ -7,3 +8,9 @@ CMakeFiles/
 *.opensdf
 *.sdf
 *.VC.db
+useful.cpp.dump
+__pycache__/
+*.pyc
+save.dat
+bin/**/save.dat
+bin/**/*.exe

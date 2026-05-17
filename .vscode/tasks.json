@@ -38,13 +38,6 @@
             "command": ".\\build\\bin\\zombie_game.exe",
             "dependsOn": "cmake: build",
             "problemMatcher": []
-        },
-        {
-            "label": "run SDL3 prototype",
-            "type": "shell",
-            "command": ".\\build\\bin\\zombie_sdl3.exe",
-            "dependsOn": "cmake: build",
-            "problemMatcher": []
         }
     ]
 }

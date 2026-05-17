@@ -1,0 +1,35 @@
+{
+  "sheet": "ui_controls.png",
+  "controls": {
+    "button_square": {
+      "states": {
+        "normal": { "x": 0, "y": 0, "w": 32, "h": 32 },
+        "hover": { "x": 32, "y": 0, "w": 32, "h": 32 },
+        "pressed": { "x": 64, "y": 0, "w": 32, "h": 32 },
+        "disabled": { "x": 96, "y": 0, "w": 32, "h": 32 }
+      },
+      "slice": { "left": 6, "right": 6, "top": 6, "bottom": 6 },
+      "content_padding": { "left": 6, "right": 6, "top": 6, "bottom": 6 },
+      "min_size": { "w": 16, "h": 16 }
+    },
+    "tab_wide": {
+      "states": {
+        "normal": { "x": 0, "y": 32, "w": 64, "h": 24 },
+        "hover": { "x": 64, "y": 32, "w": 64, "h": 24 },
+        "pressed": { "x": 128, "y": 32, "w": 64, "h": 24 },
+        "disabled": { "x": 192, "y": 32, "w": 64, "h": 24 }
+      },
+      "slice": { "left": 8, "right": 8, "top": 6, "bottom": 6 },
+      "content_padding": { "left": 10, "right": 10, "top": 5, "bottom": 5 },
+      "min_size": { "w": 40, "h": 18 }
+    },
+    "panel_large": {
+      "states": {
+        "normal": { "x": 0, "y": 56, "w": 96, "h": 96 }
+      },
+      "slice": { "left": 10, "right": 10, "top": 10, "bottom": 10 },
+      "content_padding": { "left": 14, "right": 14, "top": 14, "bottom": 14 },
+      "min_size": { "w": 32, "h": 32 }
+    }
+  }
+}

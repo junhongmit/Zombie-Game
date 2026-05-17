@@ -2,10 +2,10 @@
 
 This project started as a Win32/GDI C++ practice game. The modernization goal is to preserve the pixel-art survival-shooter feel while making the codebase easier to build, port, and extend.
 
-## Phase 0: Keep The Original Playable
+## Phase 0: Preserve The Baseline
 
 - Build from VS Code or a terminal with CMake.
-- Keep the existing Win32/GDI renderer intact as the reference implementation.
+- Keep the archived Win32/GDI baseline available as a behavioral reference when needed.
 - Avoid gameplay rewrites until the current behavior is easy to run and compare.
 
 ## Phase 1: Extract Game State
@@ -47,5 +47,6 @@ Recommended first target: SDL3 or raylib.
 - Move loose frame-by-frame animation assets toward sprite sheets or atlases with metadata for frame rects, pivots, timing, and hit regions.
 - Add a proper asset build step that can package atlases and metadata into a shipping-friendly bundle format.
 - Migrate HUD, menu, and shop text from custom debug/pixel drawing to `SDL3_ttf`.
+- Add a reusable UI skin system with 9-slice metadata, content padding, per-state frames, and minimum-size rules so buttons, tabs, sliders, and panels can scale cleanly.
 - Add semantic hit regions for enemies beyond simple head/body height checks once zombie variety expands.
 - Explore a future art pass using GPT Images for new props, enemy variants, and environment set dressing once the runtime asset pipeline is in place.

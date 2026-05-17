@@ -6,72 +6,40 @@ set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-add_executable(zombie_game WIN32
-    AI.cpp
-    blood.cpp
-    main.cpp
-    save.cpp
-    smog.cpp
-    sound.cpp
-    useful.cpp
-    window.cpp
-)
-
-target_compile_definitions(zombie_game PRIVATE
-    WIN32_LEAN_AND_MEAN
-)
-
-if(MSVC)
-    target_compile_options(zombie_game PRIVATE /W3 /permissive-)
-else()
-    target_compile_options(zombie_game PRIVATE -Wall -Wextra)
-endif()
-
-target_link_libraries(zombie_game PRIVATE
-    gdi32
-    user32
-    kernel32
-    comctl32
-    winmm
-    msimg32
-    gdiplus
-)
-
-set_target_properties(zombie_game PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-)
-
 find_package(SDL3 CONFIG REQUIRED)
 find_package(SDL3_image CONFIG REQUIRED)
 find_package(SDL3_ttf CONFIG REQUIRED)
 
-add_executable(zombie_sdl3 WIN32
-    src/sdl3/Assets.cpp
-    src/sdl3/Bullet.cpp
-    src/sdl3/Camera.cpp
-    src/sdl3/CollisionMap.cpp
-    src/sdl3/Effects.cpp
-    src/sdl3/Grenade.cpp
-    src/sdl3/Input.cpp
-    src/sdl3/Player.cpp
-    src/sdl3/Renderer2D.cpp
-    src/sdl3/SoundSystem.cpp
-    src/sdl3/SpriteCatalog.cpp
-    src/sdl3/SpriteSheet.cpp
-    src/sdl3/SurfaceMask.cpp
-    src/sdl3/Texture.cpp
-    src/sdl3/Weapon.cpp
-    src/sdl3/Zombie.cpp
-    src/sdl3/ZombieDirector.cpp
-    src/sdl3/main.cpp
+add_executable(zombie_game WIN32
+    src/AssetPaths.cpp
+    src/Assets.cpp
+    src/Bullet.cpp
+    src/Camera.cpp
+    src/CollisionMap.cpp
+    src/Effects.cpp
+    src/Grenade.cpp
+    src/HudRenderer.cpp
+    src/HumanoidBody.cpp
+    src/Input.cpp
+    src/Player.cpp
+    src/Renderer2D.cpp
+    src/SoundSystem.cpp
+    src/SpriteCatalog.cpp
+    src/SpriteSheet.cpp
+    src/SurfaceMask.cpp
+    src/Texture.cpp
+    src/Weapon.cpp
+    src/Zombie.cpp
+    src/ZombieDirector.cpp
+    src/main.cpp
 )
 
-target_link_libraries(zombie_sdl3 PRIVATE
+target_link_libraries(zombie_game PRIVATE
     SDL3::SDL3
     SDL3_image::SDL3_image
     SDL3_ttf::SDL3_ttf
 )
 
-set_target_properties(zombie_sdl3 PROPERTIES
+set_target_properties(zombie_game PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
