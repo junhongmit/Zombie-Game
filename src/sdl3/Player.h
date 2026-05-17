@@ -7,7 +7,9 @@ class CollisionMap;
 struct Player {
     float x = 520.0f;
     float y = 0.0f;
+    float vx = 0.0f;
     float vy = 0.0f;
+    float hp = 100.0f;
     bool facing_right = true;
     bool moving = false;
     bool airborne = false;
@@ -26,6 +28,8 @@ struct Player {
         float aim_y,
         bool has_aim,
         float dt);
+    void apply_impulse(float impulse_x, float impulse_y);
+    void damage(float amount);
     bool try_use_stairs(const CollisionMap& collision_map);
 };
 

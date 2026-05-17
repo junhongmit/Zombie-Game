@@ -133,6 +133,24 @@ void move_horizontally(const CollisionMap& collision_map, float axis, float dt, 
     }
 }
 
+void move_by_velocity(const CollisionMap& collision_map, float dt, float* x, float* vx, float y)
+{
+    float remaining = *vx * dt;
+    while (std::abs(remaining) > 0.0f) {
+        const float step = clamp_float(remaining, -1.0f, 1.0f);
+        const float trial_x = clamp_float(*x + step, 0.0f, kWorldWidth - kPlayerWidth);
+        const bool blocked = step < 0.0f
+            ? collides_left(collision_map, trial_x, y)
+            : collides_right(collision_map, trial_x, y);
+        if (blocked) {
+            *vx = 0.0f;
+            break;
+        }
+        *x = trial_x;
+        remaining -= step;
+    }
+}
+
 void move_vertically(const CollisionMap& collision_map, float x, float dt, float* y, float* vy, bool* airborne)
 {
     *vy = clamp_float(*vy + kGravity * dt, -kPlayerJumpSpeed, kTerminalVelocity);
@@ -187,6 +205,14 @@ void Player::update(
         walk_frame_distance = 0.0f;
     }
 
+    if (std::fabs(vx) > 0.01f) {
+        move_by_velocity(collision_map, dt, &x, &vx, y);
+        vx *= std::pow(0.18f, dt);
+        if (std::fabs(vx) < 4.0f) {
+            vx = 0.0f;
+        }
+    }
+
     const bool wants_move = axis != 0.0f;
     if (wants_move) {
         const float old_x = x;
@@ -220,8 +246,23 @@ void Player::update(
         aim_world_y = aim_y;
         const float pivot_x = x + 9.0f;
         const float pivot_y = y + 13.0f;
-        aim_angle_radians = std::atan2(aim_world_y - pivot_y, aim_world_x - pivot_x);
+        aim_angle_radians = std::atan2(pivot_y - aim_world_y, aim_world_x - pivot_x);
         facing_right = aim_world_x >= pivot_x;
+    }
+}
+
+void Player::apply_impulse(float impulse_x, float impulse_y)
+{
+    vx = impulse_x;
+    vy = impulse_y;
+    airborne = true;
+}
+
+void Player::damage(float amount)
+{
+    hp -= amount;
+    if (hp < 0.0f) {
+        hp = 0.0f;
     }
 }
 

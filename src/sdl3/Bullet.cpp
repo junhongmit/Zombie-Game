@@ -2,6 +2,7 @@
 
 #include "CollisionMap.h"
 #include "Constants.h"
+#include "Effects.h"
 #include "Player.h"
 #include "SurfaceMask.h"
 #include "Zombie.h"
@@ -12,6 +13,14 @@
 namespace zg {
 
 namespace {
+
+ImpactDirection impact_direction_from_velocity(float vx, float vy)
+{
+    if (std::fabs(vx) > std::fabs(vy)) {
+        return vx >= 0.0f ? ImpactDirection::Left : ImpactDirection::Right;
+    }
+    return vy >= 0.0f ? ImpactDirection::Top : ImpactDirection::Bottom;
+}
 
 bool zombie_mask_hit(
     const SurfaceMask& zombie_mask,
@@ -67,8 +76,14 @@ void BulletSystem::try_fire(
     bool trigger_down,
     bool trigger_pressed,
     FireMode fire_mode,
-    float dt)
+    float fire_interval_seconds,
+    float dt,
+    EffectsSystem* effects,
+    bool* fired)
 {
+    if (fired != nullptr) {
+        *fired = false;
+    }
     if (fire_cooldown_ > 0.0f) {
         fire_cooldown_ -= dt;
     }
@@ -76,7 +91,14 @@ void BulletSystem::try_fire(
     const bool wants_fire = fire_mode == FireMode::FullAuto ? trigger_down : trigger_pressed;
     if (wants_fire && fire_cooldown_ <= 0.0f) {
         fire(player);
-        fire_cooldown_ = kGlockFireIntervalSeconds;
+        if (fired != nullptr) {
+            *fired = true;
+        }
+        if (effects != nullptr) {
+            const Bullet& bullet = bullets_[(next_bullet_ + kMaxBullets - 1) % kMaxBullets];
+            effects->spawn_smoke(bullet.x, bullet.y, player.aim_angle_radians, kMuzzleSmokeSpeed, kMuzzleSmokeCount);
+        }
+        fire_cooldown_ = fire_interval_seconds;
     }
 }
 
@@ -94,7 +116,8 @@ void BulletSystem::resolve_collisions(
     const CollisionMap& collision_map,
     const SurfaceMask& zombie_mask,
     Zombie* zombies,
-    int zombie_count)
+    int zombie_count,
+    EffectsSystem* effects)
 {
     for (Bullet& bullet : bullets_) {
         if (!bullet.active) {
@@ -130,6 +153,9 @@ void BulletSystem::resolve_collisions(
                 }
 
                 bullet.active = false;
+                if (effects != nullptr) {
+                    effects->spawn_blood(sample_x, sample_y, impact_direction_from_velocity(bullet.vx, bullet.vy));
+                }
                 zombie.damage(hit_region == ZombieHitRegion::Head ? kHeadShotDamage : kBodyShotDamage);
                 break;
             }
@@ -145,13 +171,13 @@ void BulletSystem::fire(const Player& player)
     const float pivot_x = player.x + (player.facing_right ? 8.0f : 10.0f);
     const float pivot_y = player.y + 13.0f;
     const float forward_x = std::cos(player.aim_angle_radians);
-    const float forward_y = std::sin(player.aim_angle_radians);
+    const float forward_y = -std::sin(player.aim_angle_radians);
     bullet.x = pivot_x + forward_x * 14.0f;
     bullet.y = pivot_y + forward_y * 14.0f;
     bullet.prev_x = bullet.x;
     bullet.prev_y = bullet.y;
     bullet.vx = std::cos(player.aim_angle_radians) * kBulletSpeed;
-    bullet.vy = std::sin(player.aim_angle_radians) * kBulletSpeed;
+    bullet.vy = -std::sin(player.aim_angle_radians) * kBulletSpeed;
     bullet.age = 0.0f;
     bullet.active = true;
 }

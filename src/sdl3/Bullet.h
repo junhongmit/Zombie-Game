@@ -3,6 +3,7 @@
 namespace zg {
 
 class CollisionMap;
+class EffectsSystem;
 struct Player;
 class SurfaceMask;
 struct Zombie;
@@ -28,12 +29,21 @@ public:
     static constexpr int kMaxBullets = 128;
 
     void update(float dt);
-    void try_fire(const Player& player, bool trigger_down, bool trigger_pressed, FireMode fire_mode, float dt);
+    void try_fire(
+        const Player& player,
+        bool trigger_down,
+        bool trigger_pressed,
+        FireMode fire_mode,
+        float fire_interval_seconds,
+        float dt,
+        EffectsSystem* effects,
+        bool* fired);
     void resolve_collisions(
         const CollisionMap& collision_map,
         const SurfaceMask& zombie_mask,
         Zombie* zombies,
-        int zombie_count);
+        int zombie_count,
+        EffectsSystem* effects);
 
     const Bullet* bullets() const;
     int bullet_count() const;

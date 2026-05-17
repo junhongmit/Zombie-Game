@@ -43,24 +43,33 @@ set_target_properties(zombie_game PROPERTIES
 
 find_package(SDL3 CONFIG REQUIRED)
 find_package(SDL3_image CONFIG REQUIRED)
+find_package(SDL3_ttf CONFIG REQUIRED)
 
 add_executable(zombie_sdl3 WIN32
     src/sdl3/Assets.cpp
     src/sdl3/Bullet.cpp
     src/sdl3/Camera.cpp
     src/sdl3/CollisionMap.cpp
+    src/sdl3/Effects.cpp
+    src/sdl3/Grenade.cpp
     src/sdl3/Input.cpp
     src/sdl3/Player.cpp
     src/sdl3/Renderer2D.cpp
+    src/sdl3/SoundSystem.cpp
+    src/sdl3/SpriteCatalog.cpp
+    src/sdl3/SpriteSheet.cpp
     src/sdl3/SurfaceMask.cpp
     src/sdl3/Texture.cpp
+    src/sdl3/Weapon.cpp
     src/sdl3/Zombie.cpp
+    src/sdl3/ZombieDirector.cpp
     src/sdl3/main.cpp
 )
 
 target_link_libraries(zombie_sdl3 PRIVATE
     SDL3::SDL3
     SDL3_image::SDL3_image
+    SDL3_ttf::SDL3_ttf
 )
 
 set_target_properties(zombie_sdl3 PROPERTIES

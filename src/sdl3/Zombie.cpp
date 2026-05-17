@@ -22,6 +22,69 @@ bool zombie_alive_has_floor_support(const CollisionMap& collision_map, float x, 
     return false;
 }
 
+bool zombie_alive_collides_left(const CollisionMap& collision_map, float x, float y)
+{
+    const int left_x = static_cast<int>(std::round(x));
+    for (int probe = 1; probe <= 31; ++probe) {
+        const int probe_y = static_cast<int>(std::round(y + probe));
+        if (collision_map.is_solid(left_x, probe_y)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool zombie_alive_collides_right(const CollisionMap& collision_map, float x, float y)
+{
+    const int right_x = static_cast<int>(std::round(x + kZombieWidth));
+    for (int probe = 1; probe <= 31; ++probe) {
+        const int probe_y = static_cast<int>(std::round(y + probe));
+        if (collision_map.is_solid(right_x, probe_y)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool zombie_alive_collides_head(const CollisionMap& collision_map, float x, float y)
+{
+    const int head_y = static_cast<int>(std::round(y));
+    for (int probe = 5; probe <= 12; ++probe) {
+        const int probe_x = static_cast<int>(std::round(x + probe));
+        if (collision_map.is_solid(probe_x, head_y)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool zombie_alive_overlaps_solid(const CollisionMap& collision_map, float x, float y)
+{
+    for (int px = 5; px <= 12; ++px) {
+        const int probe_x = static_cast<int>(std::round(x + px));
+        for (int py = 0; py <= 31; ++py) {
+            const int probe_y = static_cast<int>(std::round(y + py));
+            if (collision_map.is_solid(probe_x, probe_y)) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+float snap_alive_zombie_to_floor(const CollisionMap& collision_map, float x, float y)
+{
+    float snapped_y = std::round(y);
+    while (snapped_y > 0.0f && zombie_alive_overlaps_solid(collision_map, x, snapped_y)) {
+        snapped_y -= 1.0f;
+    }
+    while (snapped_y < static_cast<float>(kLogicalHeight) &&
+           !zombie_alive_has_floor_support(collision_map, x, snapped_y)) {
+        snapped_y += 1.0f;
+    }
+    return snapped_y;
+}
+
 bool zombie_corpse_has_floor_support(const CollisionMap& collision_map, float x, float y)
 {
     const int foot_y = static_cast<int>(std::round(y + kZombieCorpseYOffset + kZombieCorpseHeight + 1.0f));
@@ -105,7 +168,89 @@ void update_dead_zombie(const CollisionMap& collision_map, Zombie* zombie, float
     }
 }
 
+void update_alive_airborne_zombie(const CollisionMap& collision_map, Zombie* zombie, float dt)
+{
+    if (!zombie->airborne && !zombie_alive_has_floor_support(collision_map, zombie->x, zombie->y)) {
+        zombie->airborne = true;
+    }
+
+    if (!zombie->airborne) {
+        return;
+    }
+
+    float remaining_x = zombie->vx * dt;
+    while (std::abs(remaining_x) > 0.0f) {
+        const float step = clamp_float(remaining_x, -1.0f, 1.0f);
+        const float trial_x = clamp_float(zombie->x + step, 0.0f, kWorldWidth - kZombieWidth);
+        const bool blocked = step < 0.0f
+            ? zombie_alive_collides_left(collision_map, trial_x, zombie->y)
+            : zombie_alive_collides_right(collision_map, trial_x, zombie->y);
+        if (blocked) {
+            zombie->vx = 0.0f;
+            break;
+        }
+        zombie->x = trial_x;
+        remaining_x -= step;
+    }
+
+    zombie->vy = clamp_float(zombie->vy + kGravity * dt, -kPlayerJumpSpeed, kTerminalVelocity);
+    float remaining_y = zombie->vy * dt;
+    while (std::abs(remaining_y) > 0.0f) {
+        const float step = clamp_float(remaining_y, -1.0f, 1.0f);
+        const float trial_y = zombie->y + step;
+
+        if (step < 0.0f) {
+            if (zombie_alive_collides_head(collision_map, zombie->x, trial_y)) {
+                zombie->vy = 0.0f;
+                break;
+            }
+        } else if (step > 0.0f) {
+            if (zombie_alive_has_floor_support(collision_map, zombie->x, trial_y)) {
+                zombie->y = snap_alive_zombie_to_floor(collision_map, zombie->x, zombie->y);
+                zombie->vy = 0.0f;
+                zombie->airborne = false;
+                break;
+            }
+        }
+
+        zombie->y = trial_y;
+        remaining_y -= step;
+    }
+
+    zombie->vx *= std::pow(0.15f, dt);
+    if (std::fabs(zombie->vx) < 4.0f) {
+        zombie->vx = 0.0f;
+    }
+}
+
+void move_alive_horizontally(const CollisionMap& collision_map, float axis, float dt, Zombie* zombie)
+{
+    float remaining = axis * zombie->speed * dt;
+    while (std::abs(remaining) > 0.0f) {
+        const float step = clamp_float(remaining, -1.0f, 1.0f);
+        const float trial_x = clamp_float(zombie->x + step, 0.0f, kWorldWidth - kZombieWidth);
+        const bool blocked = step < 0.0f
+            ? zombie_alive_collides_left(collision_map, trial_x, zombie->y)
+            : zombie_alive_collides_right(collision_map, trial_x, zombie->y);
+        if (blocked) {
+            break;
+        }
+        if (!zombie_alive_has_floor_support(collision_map, trial_x, zombie->y)) {
+            break;
+        }
+        zombie->x = trial_x;
+        remaining -= step;
+    }
+}
+
 } // namespace
+
+Zombie::Zombie()
+{
+    hp = 0;
+    active = false;
+    alive = false;
+}
 
 Zombie::Zombie(float x_in, float y_in, float speed_in, bool walking_right_in, int walk_frame_in)
     : x(x_in),
@@ -117,7 +262,7 @@ Zombie::Zombie(float x_in, float y_in, float speed_in, bool walking_right_in, in
 {
 }
 
-void Zombie::update(const CollisionMap& collision_map, float dt)
+void Zombie::update(const CollisionMap& collision_map, float move_axis, float dt)
 {
     if (!active) {
         return;
@@ -135,20 +280,26 @@ void Zombie::update(const CollisionMap& collision_map, float dt)
         return;
     }
 
+    update_alive_airborne_zombie(collision_map, this, dt);
+    if (airborne) {
+        return;
+    }
+
     const float old_x = x;
-    x += (walking_right ? speed : -speed) * dt;
-    if (x < 0.0f) {
-        x = 0.0f;
-        walking_right = true;
-    } else if (x > kWorldWidth - kZombieWidth) {
-        x = kWorldWidth - kZombieWidth;
-        walking_right = false;
+    if (move_axis != 0.0f) {
+        walking_right = move_axis > 0.0f;
+        move_alive_horizontally(collision_map, move_axis, dt, this);
     }
 
     walk_frame_distance += std::abs(x - old_x);
-    while (walk_frame_distance >= kWalkPixelsPerFrame) {
-        walk_frame_distance -= kWalkPixelsPerFrame;
-        walk_frame = (walk_frame + 1) % 24;
+    if (std::abs(x - old_x) > 0.0f) {
+        while (walk_frame_distance >= kWalkPixelsPerFrame) {
+            walk_frame_distance -= kWalkPixelsPerFrame;
+            walk_frame = (walk_frame + 1) % 24;
+        }
+    } else {
+        walk_frame = 0;
+        walk_frame_distance = 0.0f;
     }
 }
 
@@ -170,14 +321,23 @@ void Zombie::kill()
 {
     hp = 0;
     alive = false;
-    airborne = false;
-    vx = walking_right ? kZombieCorpseDriftSpeed : -kZombieCorpseDriftSpeed;
-    vy = -70.0f;
+    airborne = true;
+    vx = walking_right ? kZombieCorpseLaunchSpeed : -kZombieCorpseLaunchSpeed;
+    vy = kZombieCorpseLaunchVy;
     corpse_angle_degrees = 0.0f;
     corpse_alpha = 255.0f;
     corpse_fade_timer = 0.0f;
     walk_frame = 0;
     walk_frame_distance = 0.0f;
+}
+
+void Zombie::apply_impulse(float impulse_x, float impulse_y)
+{
+    vx = impulse_x;
+    vy = impulse_y;
+    if (alive) {
+        airborne = true;
+    }
 }
 
 ZombieHitRegion Zombie::hit_test(float world_x, float world_y, bool use_sprite_mask) const

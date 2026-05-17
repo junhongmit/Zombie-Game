@@ -3,12 +3,18 @@
 #include "Camera.h"
 #include "CollisionMap.h"
 #include "Constants.h"
+#include "Effects.h"
+#include "Grenade.h"
 #include "Input.h"
 #include "Player.h"
 #include "Renderer2D.h"
+#include "SoundSystem.h"
+#include "Weapon.h"
 #include "Zombie.h"
+#include "ZombieDirector.h"
 
 #include <SDL3/SDL.h>
+#include <SDL3_ttf/SDL_ttf.h>
 
 #include <array>
 #include <cstdio>
@@ -22,6 +28,12 @@ bool init_sdl_window(SDL_Window** window, SDL_Renderer** renderer)
         return false;
     }
 
+    if (!TTF_Init()) {
+        std::fprintf(stderr, "TTF_Init failed: %s\n", SDL_GetError());
+        SDL_Quit();
+        return false;
+    }
+
     *window = SDL_CreateWindow(
         "ZombieGame SDL3 Prototype",
         960,
@@ -30,6 +42,7 @@ bool init_sdl_window(SDL_Window** window, SDL_Renderer** renderer)
     );
     if (*window == nullptr) {
         std::fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
+        TTF_Quit();
         SDL_Quit();
         return false;
     }
@@ -38,6 +51,7 @@ bool init_sdl_window(SDL_Window** window, SDL_Renderer** renderer)
     if (*renderer == nullptr) {
         std::fprintf(stderr, "SDL_CreateRenderer failed: %s\n", SDL_GetError());
         SDL_DestroyWindow(*window);
+        TTF_Quit();
         SDL_Quit();
         return false;
     }
@@ -67,6 +81,15 @@ int main(int, char**)
     if (!assets.load(renderer)) {
         SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(window);
+        TTF_Quit();
+        SDL_Quit();
+        return 1;
+    }
+    zg::WeaponCatalog weapon_catalog;
+    if (!weapon_catalog.load(renderer, "image/weapon/weapon.ini")) {
+        SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(window);
+        TTF_Quit();
         SDL_Quit();
         return 1;
     }
@@ -74,25 +97,41 @@ int main(int, char**)
     if (!collision_map.load("image/building1 form.png")) {
         SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(window);
+        TTF_Quit();
         SDL_Quit();
         return 1;
     }
 
     zg::Renderer2D renderer2d(renderer);
+    zg::SoundSystem sounds;
+    if (!sounds.init() || !sounds.load_defaults()) {
+        sounds.shutdown();
+        SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(window);
+        TTF_Quit();
+        SDL_Quit();
+        return 1;
+    }
     zg::Player player;
     zg::Camera camera;
+    zg::EffectsSystem effects;
+    zg::GrenadeSystem grenades;
     zg::InputState input;
     zg::BulletSystem bullets;
-    std::array<zg::Zombie, 6> zombies = {{
-        zg::Zombie(36.0f, 400.0f, 16.0f, true, 0),
-        zg::Zombie(160.0f, 400.0f, 22.0f, true, 3),
-        zg::Zombie(330.0f, 400.0f, 18.0f, false, 8),
-        zg::Zombie(690.0f, 400.0f, 20.0f, false, 12),
-        zg::Zombie(835.0f, 400.0f, 24.0f, true, 17),
-        zg::Zombie(1015.0f, 400.0f, 15.0f, false, 21),
-    }};
+    zg::ZombieDirector zombie_director;
+    zg::WeaponState weapon;
+    if (!weapon.load_default_inventory(weapon_catalog)) {
+        sounds.shutdown();
+        SDL_DestroyRenderer(renderer);
+        SDL_DestroyWindow(window);
+        TTF_Quit();
+        SDL_Quit();
+        return 1;
+    }
+    std::array<zg::Zombie, zg::kZombiePoolSize> zombies{};
 
     camera.follow(player.x);
+    zombie_director.init(collision_map);
 
     bool running = true;
     Uint64 last_ticks = SDL_GetTicks();
@@ -100,6 +139,11 @@ int main(int, char**)
         input.poll(renderer);
         if (input.quit) {
             running = false;
+        }
+        if (input.switch_slot >= 0) {
+            weapon.switch_to_slot(input.switch_slot);
+        } else if (input.cycle_weapon != 0) {
+            weapon.cycle(input.cycle_weapon);
         }
 
         const Uint64 now_ticks = SDL_GetTicks();
@@ -119,22 +163,57 @@ int main(int, char**)
         if (input.stair_pressed) {
             player.try_use_stairs(collision_map);
         }
+        if (input.reload_pressed) {
+            weapon.start_reload();
+        }
+        weapon.update(dt);
+        if (grenades.try_throw(player, input.grenade_pressed)) {
+            sounds.play(zg::SoundId::GrenadeThrow, 0.8f);
+        }
+        bool fired = false;
+        const zg::WeaponDefinition* current_weapon = weapon.current_definition();
         bullets.try_fire(
             player,
-            input.fire_down && input.mouse_in_view,
-            input.fire_pressed && input.mouse_in_view,
-            zg::FireMode::SemiAuto,
-            dt);
+            weapon.can_fire() && input.fire_down && input.mouse_in_view,
+            weapon.can_fire() && input.fire_pressed && input.mouse_in_view,
+            current_weapon != nullptr && current_weapon->full_auto ? zg::FireMode::FullAuto : zg::FireMode::SemiAuto,
+            current_weapon != nullptr ? current_weapon->fire_interval_seconds() : zg::kGlockFireIntervalSeconds,
+            dt,
+            &effects,
+            &fired);
+        if (fired) {
+            weapon.consume_round();
+            current_weapon = weapon.current_definition();
+            if (current_weapon != nullptr) {
+                sounds.play_file(current_weapon->shoot_sound_path.c_str(), current_weapon->loudness);
+                camera.add_shake(current_weapon->shake_duration, current_weapon->shake_magnitude);
+            }
+        }
         bullets.update(dt);
         bullets.resolve_collisions(
             collision_map,
             assets.zombie_mask,
             zombies.data(),
-            static_cast<int>(zombies.size()));
-        for (zg::Zombie& zombie : zombies) {
-            zombie.update(collision_map, dt);
+            static_cast<int>(zombies.size()),
+            &effects);
+        grenades.update(
+            collision_map,
+            &player,
+            zombies.data(),
+            static_cast<int>(zombies.size()),
+            &effects,
+            dt);
+        if (grenades.consume_explosion_event()) {
+            sounds.play_random_explosion();
+            camera.add_shake(zg::kExplosionShakeDuration, zg::kExplosionShakeMagnitude);
         }
+        zombie_director.update(collision_map, player, zombies.data(), static_cast<int>(zombies.size()), dt);
+        for (int i = 0; i < static_cast<int>(zombies.size()); ++i) {
+            zombies[static_cast<size_t>(i)].update(collision_map, zombie_director.move_axis_for(i), dt);
+        }
+        effects.update(collision_map, dt);
         camera.follow(player.x);
+        camera.update(dt);
 
         renderer2d.begin_frame();
         renderer2d.render_scene(
@@ -144,12 +223,21 @@ int main(int, char**)
             static_cast<int>(zombies.size()),
             bullets.bullets(),
             bullets.bullet_count(),
+            grenades.grenades(),
+            grenades.grenade_count(),
+            grenades.explosions(),
+            grenades.explosion_count(),
+            effects,
+            weapon.current_definition(),
+            weapon,
             camera);
         renderer2d.end_frame();
     }
 
+    sounds.shutdown();
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
+    TTF_Quit();
     SDL_Quit();
     return 0;
 }

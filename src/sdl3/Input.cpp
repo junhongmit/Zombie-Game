@@ -6,12 +6,24 @@ namespace zg {
 
 void InputState::poll(SDL_Renderer* renderer)
 {
+    switch_slot = -1;
+    cycle_weapon = 0;
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
         if (event.type == SDL_EVENT_QUIT) {
             quit = true;
         } else if (event.type == SDL_EVENT_KEY_DOWN && event.key.key == SDLK_ESCAPE) {
             quit = true;
+        } else if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat) {
+            if (event.key.key >= SDLK_1 && event.key.key <= SDLK_5) {
+                switch_slot = static_cast<int>(event.key.key - SDLK_1);
+            }
+        } else if (event.type == SDL_EVENT_MOUSE_WHEEL) {
+            if (event.wheel.y > 0) {
+                cycle_weapon = -1;
+            } else if (event.wheel.y < 0) {
+                cycle_weapon = 1;
+            }
         }
     }
 
@@ -29,6 +41,12 @@ void InputState::poll(SDL_Renderer* renderer)
     stair_down = keys[SDL_SCANCODE_S] || keys[SDL_SCANCODE_DOWN];
     stair_pressed = stair_down && !previous_stair_down_;
     previous_stair_down_ = stair_down;
+    const bool reload_down = keys[SDL_SCANCODE_R];
+    reload_pressed = reload_down && !previous_reload_down_;
+    previous_reload_down_ = reload_down;
+    const bool grenade_down = keys[SDL_SCANCODE_G];
+    grenade_pressed = grenade_down && !previous_grenade_down_;
+    previous_grenade_down_ = grenade_down;
 
     float window_x = 0.0f;
     float window_y = 0.0f;

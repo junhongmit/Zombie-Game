@@ -69,6 +69,12 @@ For the SDL3 refactor branch, also install:
 pacman -S --needed mingw-w64-ucrt-x86_64-sdl3 mingw-w64-ucrt-x86_64-sdl3-image
 ```
 
+If you want to switch HUD or menu text to TrueType font rendering later, also install:
+
+```bash
+pacman -S --needed mingw-w64-ucrt-x86_64-sdl3-ttf
+```
+
 MSYS2 package names matter. For native Windows builds, prefer packages with the `mingw-w64-ucrt-x86_64-` prefix.
 
 ## 4. Add Tools To Windows PATH

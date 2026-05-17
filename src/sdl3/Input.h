@@ -16,6 +16,10 @@ struct InputState {
     bool jump_pressed = false;
     bool stair_down = false;
     bool stair_pressed = false;
+    bool reload_pressed = false;
+    bool grenade_pressed = false;
+    int switch_slot = -1;
+    int cycle_weapon = 0;
 
     void poll(SDL_Renderer* renderer);
 
@@ -23,6 +27,8 @@ private:
     bool previous_fire_down_ = false;
     bool previous_jump_down_ = false;
     bool previous_stair_down_ = false;
+    bool previous_reload_down_ = false;
+    bool previous_grenade_down_ = false;
 };
 
 } // namespace zg

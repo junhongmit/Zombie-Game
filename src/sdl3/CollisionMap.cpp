@@ -97,6 +97,46 @@ TriggerType CollisionMap::trigger_at(int x, int y) const
     return TriggerType::None;
 }
 
+SurfaceImpactDirection CollisionMap::impact_direction_at(int x, int y) const
+{
+    if (!is_solid(x, y)) {
+        return SurfaceImpactDirection::None;
+    }
+
+    const int max_distance = 10;
+    int left = 1;
+    while (left <= max_distance && is_solid(x - left, y)) {
+        ++left;
+    }
+    int right = 1;
+    while (right <= max_distance && is_solid(x + right, y)) {
+        ++right;
+    }
+    int top = 1;
+    while (top <= max_distance && is_solid(x, y - top)) {
+        ++top;
+    }
+    int bottom = 1;
+    while (bottom <= max_distance && is_solid(x, y + bottom)) {
+        ++bottom;
+    }
+
+    if (left < right && left < top && left < bottom && left <= max_distance) {
+        return SurfaceImpactDirection::Left;
+    }
+    if (right < left && right < top && right < bottom && right <= max_distance) {
+        return SurfaceImpactDirection::Right;
+    }
+    if (top < bottom && top <= max_distance) {
+        return SurfaceImpactDirection::Top;
+    }
+    if (bottom <= max_distance) {
+        return SurfaceImpactDirection::Bottom;
+    }
+
+    return SurfaceImpactDirection::Top;
+}
+
 int CollisionMap::width() const
 {
     return surface_ != nullptr ? surface_->w : 0;
