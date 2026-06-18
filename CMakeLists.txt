@@ -21,6 +21,8 @@ add_executable(zombie_game WIN32
     src/HudRenderer.cpp
     src/HumanoidBody.cpp
     src/Input.cpp
+    src/InventoryState.cpp
+    src/LocalizationTable.cpp
     src/Player.cpp
     src/Renderer2D.cpp
     src/SoundSystem.cpp
@@ -29,8 +31,22 @@ add_executable(zombie_game WIN32
     src/SurfaceMask.cpp
     src/Texture.cpp
     src/Weapon.cpp
+    src/WeaponRelight.cpp
     src/Zombie.cpp
     src/ZombieDirector.cpp
+    src/ui/Button.cpp
+    src/ui/Card.cpp
+    src/ui/ControlStyle.cpp
+    src/ui/GameHudLayout.cpp
+    src/ui/InventoryLayout.cpp
+    src/ui/InventoryScreen.cpp
+    src/ui/LayoutJson.cpp
+    src/ui/ListView.cpp
+    src/ui/Panel.cpp
+    src/ui/ProgressBar.cpp
+    src/ui/Scrollbar.cpp
+    src/ui/WorkbenchLayout.cpp
+    src/ui/WorkbenchScreen.cpp
     src/main.cpp
 )
 

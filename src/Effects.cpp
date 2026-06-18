@@ -117,9 +117,10 @@ void EffectsSystem::update(const CollisionMap& collision_map, float dt)
     }
 }
 
-void EffectsSystem::spawn_blood(float x, float y, ImpactDirection direction)
+void EffectsSystem::spawn_blood(float x, float y, ImpactDirection direction, float count_scale)
 {
-    const int count = kBloodSpawnMin + (std::rand() % (kBloodSpawnMax - kBloodSpawnMin + 1));
+    const int base_count = kBloodSpawnMin + (std::rand() % (kBloodSpawnMax - kBloodSpawnMin + 1));
+    const int count = std::max(1, static_cast<int>(std::round(base_count * count_scale)));
     for (int i = 0; i < count; ++i) {
         BloodParticle& particle = blood_particles_[next_blood_particle_];
         next_blood_particle_ = (next_blood_particle_ + 1) % kMaxBloodParticles;

@@ -164,6 +164,49 @@ python tools/pack_spritesheet.py `
   --output-meta assets/effects/boom1_strip.sheet
 ```
 
+## Weapon Relight Prototype
+
+For the workbench weapon-lighting prototype:
+
+```powershell
+python tools/weapon_relight.py `
+  --albedo assets/weapons/glock.png `
+  --height path/to/glock_depth.png `
+  --output tmp/glock_lit.png `
+  --normal-output tmp/glock_normal.png `
+  --light-output tmp/glock_light.png `
+  --shadow-output tmp/glock_shadow.png `
+  --highlight-output tmp/glock_highlight.png `
+  --table-shadow-output tmp/glock_table_shadow.png `
+  --light-mode point `
+  --light-pos 0.72,0.12,0.65
+```
+
+Useful knobs:
+
+- `--light-mode`
+- `--light-pos`
+- `--light-falloff`
+- `--ambient`
+- `--directional`
+- `--specular-strength`
+- `--specular-power`
+- `--shadow-strength`
+- `--height-scale`
+- `--light-dir`
+- `--mask-erode`
+- `--mask-blur`
+- `--table-height-scale`
+- `--thickness-scale`
+- `--table-shadow-mode`
+- `--table-shadow-opacity`
+- `--table-shadow-blur-base`
+- `--table-shadow-blur-height-scale`
+- `--table-shadow-stretch-x`
+- `--table-shadow-stretch-y`
+- `--table-ground-offset-y`
+- `--table-shadow-downsample`
+
 ## Clean Rebuild
 
 ```powershell

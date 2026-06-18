@@ -65,7 +65,7 @@ void BulletSystem::update(float dt)
             bullet.x < 0.0f ||
             bullet.x > kWorldWidth ||
             bullet.y < 0.0f ||
-            bullet.y > kLogicalHeight) {
+            bullet.y > kGameplayViewHeight) {
             bullet.active = false;
         }
     }
@@ -153,8 +153,13 @@ void BulletSystem::resolve_collisions(
                 }
 
                 bullet.active = false;
+                const bool lethal = zombie.hp <= (hit_region == ZombieHitRegion::Head ? kHeadShotDamage : kBodyShotDamage);
                 if (effects != nullptr) {
-                    effects->spawn_blood(sample_x, sample_y, impact_direction_from_velocity(bullet.vx, bullet.vy));
+                    effects->spawn_blood(
+                        sample_x,
+                        sample_y,
+                        impact_direction_from_velocity(bullet.vx, bullet.vy),
+                        lethal ? kDeathBloodCountScale : 1.0f);
                 }
                 zombie.damage(hit_region == ZombieHitRegion::Head ? kHeadShotDamage : kBodyShotDamage);
                 break;

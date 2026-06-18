@@ -1,0 +1,23 @@
+python tools/weapon_relight.py `
+  --albedo assets/weapons/glock.png `
+  --height assets/weapons/glock_depth.png `
+  --output tmp/glock_lit.png `
+  --normal-output tmp/glock_normal.png `
+  --light-output tmp/glock_light.png `
+  --shadow-output tmp/glock_shadow.png `
+  --highlight-output tmp/glock_highlight.png `
+  --table-shadow-output tmp/glock_table_shadow.png `
+  --debug-preview-output tmp/glock_debug_preview_directional.png `
+  --light-mode point `
+  --light-pos 0.8,-0.3,0.1 `
+  --light-dir "1.0,1.0,0" `
+  --light-falloff 0.5 `
+  --ambient 0.6 `
+  --directional 0.25 `
+  --specular-strength 2.0 `
+  --specular-power 14 `
+  --shadow-strength 0.25 `
+  --height-scale 4 `
+  --blur-radius 3 `
+  --mask-erode 2 `
+  --mask-blur 2

@@ -7,6 +7,7 @@
 #include "Grenade.h"
 #include "HudRenderer.h"
 #include "Input.h"
+#include "InventoryState.h"
 #include "MathUtil.h"
 #include "Player.h"
 #include "Renderer2D.h"
@@ -14,6 +15,8 @@
 #include "Weapon.h"
 #include "Zombie.h"
 #include "ZombieDirector.h"
+#include "ui/WorkbenchScreen.h"
+#include "ui/InventoryScreen.h"
 
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
@@ -23,9 +26,16 @@
 
 namespace {
 
+void show_startup_error(SDL_Window* window, const char* message)
+{
+    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Zombie Game - Startup Error", message, window);
+}
+
 enum class GamePhase {
     Title,
     Intro,
+    Workbench,
+    Inventory,
     Playing
 };
 
@@ -46,9 +56,9 @@ bool init_sdl_window(SDL_Window** window, SDL_Renderer** renderer)
 
     *window = SDL_CreateWindow(
         "ZombieGame SDL3 Prototype",
-        960,
-        720,
-        SDL_WINDOW_RESIZABLE
+        zg::kWindowDefaultWidth,
+        zg::kWindowDefaultHeight,
+        SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY
     );
     if (*window == nullptr) {
         std::fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
@@ -66,14 +76,10 @@ bool init_sdl_window(SDL_Window** window, SDL_Renderer** renderer)
         return false;
     }
 
-    SDL_SetRenderVSync(*renderer, 1);
-    SDL_SetRenderLogicalPresentation(
-        *renderer,
-        zg::kLogicalWidth,
-        zg::kLogicalHeight,
-        SDL_LOGICAL_PRESENTATION_LETTERBOX
-    );
+    SDL_SetWindowMinimumSize(*window, zg::kWindowMinWidth, zg::kWindowMinHeight);
+    SDL_SetWindowAspectRatio(*window, 16.0f / 9.0f, 16.0f / 9.0f);
 
+    SDL_SetRenderVSync(*renderer, 1);
     return true;
 }
 
@@ -89,6 +95,7 @@ int main(int, char**)
 
     zg::Assets assets;
     if (!assets.load(renderer)) {
+        show_startup_error(window, "Failed to load startup assets. Check assets/scenes, assets/ui, and related metadata paths.");
         SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(window);
         TTF_Quit();
@@ -96,7 +103,9 @@ int main(int, char**)
         return 1;
     }
     zg::WeaponCatalog weapon_catalog;
-    if (!weapon_catalog.load(renderer, "assets/weapons/weapon.ini")) {
+    if (!weapon_catalog.load(renderer, "assets/weapons/weapons.json") &&
+        !weapon_catalog.load(renderer, "assets/weapons/weapon.ini")) {
+        show_startup_error(window, "Failed to load weapon metadata from assets/weapons/weapons.json or assets/weapons/weapon.ini.");
         SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(window);
         TTF_Quit();
@@ -105,6 +114,7 @@ int main(int, char**)
     }
     zg::CollisionMap collision_map;
     if (!collision_map.load("assets/collision/building1_form.png")) {
+        show_startup_error(window, "Failed to load the collision map from assets/collision/building1_form.png.");
         SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(window);
         TTF_Quit();
@@ -114,8 +124,11 @@ int main(int, char**)
 
     zg::Renderer2D renderer2d(renderer);
     zg::HudRenderer hud(renderer);
+    zg::WorkbenchScreen workbench(renderer);
+    zg::InventoryScreen inventory_screen(renderer);
     zg::SoundSystem sounds;
     if (!sounds.init() || !sounds.load_defaults()) {
+        show_startup_error(window, "Failed to initialize or load audio assets.");
         sounds.shutdown();
         SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(window);
@@ -131,7 +144,9 @@ int main(int, char**)
     zg::BulletSystem bullets;
     zg::ZombieDirector zombie_director;
     zg::WeaponState weapon;
+    zg::InventoryState inventory;
     if (!weapon.load_default_inventory(weapon_catalog)) {
+        show_startup_error(window, "Failed to build the default weapon inventory from weapon metadata.");
         sounds.shutdown();
         SDL_DestroyRenderer(renderer);
         SDL_DestroyWindow(window);
@@ -139,9 +154,11 @@ int main(int, char**)
         SDL_Quit();
         return 1;
     }
+    inventory.load_demo(renderer);
     std::array<zg::Zombie, zg::kZombiePoolSize> zombies{};
 
     GamePhase phase = GamePhase::Title;
+    zg::TitleMenuAction armed_title_action = zg::TitleMenuAction::None;
     float intro_timer = 0.0f;
     camera.x = zg::kTitleCameraX;
     camera.target_x = zg::kTitleCameraX;
@@ -151,16 +168,27 @@ int main(int, char**)
     bool running = true;
     Uint64 last_ticks = SDL_GetTicks();
     while (running) {
+        weapon_catalog.update_relight_jobs(renderer);
         input.poll(renderer);
+        inventory.sync_from_weapon_state(weapon);
+        if (input.switch_mode >= 0) {
+            inventory.set_current_mode_by_index(input.switch_mode);
+        }
         if (input.quit) {
             running = false;
         }
-        if (input.switch_slot >= 0) {
-            weapon.switch_to_slot(input.switch_slot);
-        } else if (input.cycle_weapon != 0) {
-            weapon.cycle(input.cycle_weapon);
+        if (input.back_pressed) {
+            if (phase == GamePhase::Workbench) {
+                phase = GamePhase::Title;
+                armed_title_action = zg::TitleMenuAction::None;
+            } else if (phase == GamePhase::Inventory) {
+                phase = GamePhase::Playing;
+            } else if (phase == GamePhase::Title) {
+                running = false;
+            } else if (phase == GamePhase::Playing) {
+                running = false;
+            }
         }
-
         const Uint64 now_ticks = SDL_GetTicks();
         const float dt = static_cast<float>(now_ticks - last_ticks) / 1000.0f;
         last_ticks = now_ticks;
@@ -172,11 +200,46 @@ int main(int, char**)
             camera.target_x = zg::kTitleCameraX;
             camera.x = zg::kTitleCameraX;
             camera.target_zoom = zg::kTitleCameraZoom;
-            if (input.confirm_pressed) {
+            if (input.fire_pressed) {
+                armed_title_action = hud.hit_test_title_menu(input.ui_mouse_x, input.ui_mouse_y, input.ui_mouse_in_view);
+            }
+            zg::TitleMenuAction title_action = zg::TitleMenuAction::None;
+            if (input.fire_released) {
+                const zg::TitleMenuAction released_action =
+                    hud.hit_test_title_menu(input.ui_mouse_x, input.ui_mouse_y, input.ui_mouse_in_view);
+                if (armed_title_action != zg::TitleMenuAction::None &&
+                    armed_title_action == released_action) {
+                    title_action = released_action;
+                }
+                armed_title_action = zg::TitleMenuAction::None;
+            }
+            if (title_action == zg::TitleMenuAction::Exit) {
+                running = false;
+            } else if (title_action == zg::TitleMenuAction::Loadout) {
+                phase = GamePhase::Workbench;
+            } else if (input.confirm_pressed || title_action == zg::TitleMenuAction::Start) {
                 phase = GamePhase::Intro;
                 intro_timer = 0.0f;
+                armed_title_action = zg::TitleMenuAction::None;
+            }
+        } else if (phase == GamePhase::Workbench) {
+            camera.target_x = zg::kTitleCameraX;
+            camera.x = zg::kTitleCameraX;
+            camera.target_zoom = zg::kTitleCameraZoom;
+        } else if (phase == GamePhase::Inventory) {
+            if (input.inventory_pressed) {
+                phase = GamePhase::Playing;
             }
         } else {
+            if (input.inventory_pressed) {
+                phase = GamePhase::Inventory;
+            }
+            if (input.switch_slot >= 0) {
+                weapon.switch_to_slot(input.switch_slot);
+            } else if (input.cycle_weapon != 0) {
+                weapon.cycle(input.cycle_weapon);
+            }
+
             player.update(
                 collision_map,
                 input.move_axis,
@@ -241,7 +304,7 @@ int main(int, char**)
             if (phase == GamePhase::Intro) {
                 intro_timer += dt;
                 const float t = intro_timer >= kIntroDurationSeconds ? 1.0f : intro_timer / kIntroDurationSeconds;
-                const float gameplay_target = zg::clamp_float(player.x - static_cast<float>(zg::kLogicalWidth) * 0.5f, 0.0f, zg::kWorldWidth - zg::kLogicalWidth);
+                const float gameplay_target = zg::clamp_float(player.x - zg::kGameplayViewWidth * 0.5f, 0.0f, zg::kWorldWidth - zg::kGameplayViewWidth);
                 camera.target_x = gameplay_target;
                 camera.x = zg::kTitleCameraX + (gameplay_target - zg::kTitleCameraX) * t;
                 camera.target_zoom = zg::kTitleCameraZoom + (zg::kGameplayCameraZoom - zg::kTitleCameraZoom) * t;
@@ -257,7 +320,7 @@ int main(int, char**)
         camera.update(dt);
 
         float player_alpha = 1.0f;
-        if (phase == GamePhase::Title) {
+        if (phase == GamePhase::Title || phase == GamePhase::Workbench) {
             player_alpha = 0.0f;
         } else if (phase == GamePhase::Intro) {
             const float t = intro_timer / kIntroDurationSeconds;
@@ -270,28 +333,69 @@ int main(int, char**)
         }
 
         renderer2d.begin_frame();
-        renderer2d.render_scene(
-            assets,
-            player,
-            zombies.data(),
-            static_cast<int>(zombies.size()),
-            bullets.bullets(),
-            bullets.bullet_count(),
-            grenades.grenades(),
-            grenades.grenade_count(),
-            grenades.explosions(),
-            grenades.explosion_count(),
-            effects,
-            weapon.current_definition(),
-            phase == GamePhase::Playing || (phase == GamePhase::Intro && intro_timer / kIntroDurationSeconds >= zg::kIntroPlayerRevealT),
-            player_alpha,
-            camera);
-        if (phase == GamePhase::Playing) {
-            hud.render_weapon_status(assets.bullet_icon, player, weapon.current_definition(), weapon, camera);
-            hud.render_top_bar(weapon, zombie_director.wave(), zombie_director.alive_count());
+        const SDL_FRect presentation_rect = renderer2d.presentation_rect();
+        const SDL_FRect ui_presentation_rect{
+            0.0f,
+            0.0f,
+            static_cast<float>(zg::kInternalRenderWidth),
+            static_cast<float>(zg::kInternalRenderHeight)
+        };
+        if (phase == GamePhase::Workbench) {
+            workbench.render(
+                assets,
+                weapon,
+                ui_presentation_rect,
+                dt,
+                input.wheel_x,
+                input.wheel_y,
+                input.ui_mouse_x,
+                input.ui_mouse_y,
+                input.ui_mouse_in_view,
+                input.fire_down,
+                input.fire_pressed,
+                input.fire_released);
+        } else {
+            renderer2d.render_scene(
+                assets,
+                player,
+                zombies.data(),
+                static_cast<int>(zombies.size()),
+                bullets.bullets(),
+                bullets.bullet_count(),
+                grenades.grenades(),
+                grenades.grenade_count(),
+                grenades.explosions(),
+                grenades.explosion_count(),
+                effects,
+                weapon.current_definition(),
+                phase == GamePhase::Playing || (phase == GamePhase::Intro && intro_timer / kIntroDurationSeconds >= zg::kIntroPlayerRevealT),
+                player_alpha,
+                camera);
+            if (phase == GamePhase::Playing || phase == GamePhase::Inventory) {
+                hud.render_weapon_status(assets.bullet_icon, player, weapon.current_definition(), weapon, camera, presentation_rect);
+                hud.render_gameplay_hud(
+                    assets,
+                    player,
+                    inventory,
+                    weapon,
+                    zombie_director.wave(),
+                    zombie_director.alive_count(),
+                    ui_presentation_rect);
+            }
+            if (phase == GamePhase::Inventory) {
+                inventory_screen.render(assets, inventory, weapon, ui_presentation_rect);
+            }
+            const float ui_alpha = phase == GamePhase::Title ? 1.0f : (phase == GamePhase::Intro ? 1.0f - (intro_timer / kIntroDurationSeconds) : 0.0f);
+            hud.render_title_screen(
+                assets.title_button_skin,
+                ui_alpha,
+                input.ui_mouse_x,
+                input.ui_mouse_y,
+                input.ui_mouse_in_view,
+                input.fire_down,
+                armed_title_action,
+                ui_presentation_rect);
         }
-        const float ui_alpha = phase == GamePhase::Title ? 1.0f : (phase == GamePhase::Intro ? 1.0f - (intro_timer / kIntroDurationSeconds) : 0.0f);
-        hud.render_title_screen(ui_alpha, phase == GamePhase::Title);
         renderer2d.end_frame();
     }
 

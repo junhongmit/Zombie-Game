@@ -64,7 +64,7 @@ void GrenadeSystem::update(
             grenade.clip_tail = false;
         }
 
-        if (grenade.x < 0.0f || grenade.x >= kWorldWidth || grenade.y < 0.0f || grenade.y >= kLogicalHeight) {
+        if (grenade.x < 0.0f || grenade.x >= kWorldWidth || grenade.y < 0.0f || grenade.y >= kGameplayViewHeight) {
             grenade.active = false;
             continue;
         }

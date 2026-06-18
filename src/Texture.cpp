@@ -71,6 +71,27 @@ bool Texture::load(SDL_Renderer* renderer, const char* path, bool use_white_colo
     return true;
 }
 
+bool Texture::load_from_surface(SDL_Renderer* renderer, SDL_Surface* surface)
+{
+    reset();
+    if (renderer == nullptr || surface == nullptr) {
+        return false;
+    }
+
+    handle_ = SDL_CreateTextureFromSurface(renderer, surface);
+    width_ = static_cast<float>(surface->w);
+    height_ = static_cast<float>(surface->h);
+    if (handle_ == nullptr) {
+        std::fprintf(stderr, "Failed to create texture from surface: %s\n", SDL_GetError());
+        width_ = 0.0f;
+        height_ = 0.0f;
+        return false;
+    }
+
+    SDL_SetTextureScaleMode(handle_, SDL_SCALEMODE_NEAREST);
+    return true;
+}
+
 void Texture::reset()
 {
     if (handle_ != nullptr) {

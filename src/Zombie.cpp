@@ -45,7 +45,7 @@ float snap_corpse_to_floor(const CollisionMap& collision_map, float x, float y)
     while (snapped_y > 0.0f && zombie_corpse_overlaps_solid(collision_map, x, snapped_y)) {
         snapped_y -= 1.0f;
     }
-    while (snapped_y < static_cast<float>(kLogicalHeight) &&
+    while (snapped_y < kGameplayViewHeight &&
            !zombie_corpse_has_floor_support(collision_map, x, snapped_y)) {
         snapped_y += 1.0f;
     }
@@ -134,7 +134,7 @@ void update_alive_airborne_zombie(const CollisionMap& collision_map, Zombie* zom
             }
         } else if (step > 0.0f) {
             if (kZombieBody.has_floor_support(collision_map, zombie->x, trial_y)) {
-                zombie->y = kZombieBody.snap_to_floor(collision_map, zombie->x, zombie->y, static_cast<float>(kLogicalHeight));
+                zombie->y = kZombieBody.snap_to_floor(collision_map, zombie->x, zombie->y, kGameplayViewHeight);
                 zombie->vy = 0.0f;
                 zombie->airborne = false;
                 break;

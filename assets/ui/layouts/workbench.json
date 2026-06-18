@@ -1,0 +1,36 @@
+{
+  "rects": {
+    "resource_strip": { "x": 0.0125, "y": 0.016667, "w": 0.975, "h": 0.055556 },
+    "weapon_list_panel": {
+      "x": 0.025,
+      "y": 0.12,
+      "w": 0.2,
+      "h": 0.7,
+      "children": {
+        "title": { "x": 0.05, "y": 0.035, "w": 0.6, "h": 0.08, "text": "$panel.weapon_list" },
+        "list_view": { "x": 0.04, "y": 0.12, "w": 0.92, "h": 0.84 }
+      }
+    },
+    "preview_panel": { "x": 0.15 , "y": 0.25, "w": 0.7, "h": 0.5 },
+    "preview_nameplate": { "x": 0.425, "y": 0.175, "w": 0.15, "h": 0.06 },
+    "stats_panel": { "x": 0.75, "y": 0.12, "w": 0.2, "h": 0.4 },
+    "effects_panel": { "x": 0.75, "y": 0.5, "w": 0.2, "h": 0.15 },
+    "upgrade_panel": { "x": 0.75, "y": 0.7, "w": 0.2, "h": 0.25 },
+    "attachments_panel": {
+      "x": 0.25,
+      "y": 0.8,
+      "w": 0.47,
+      "h": 0.18,
+      "children": {
+        "title": { "x": 0.03, "y": 0.04, "w": 0.5, "h": 0.12, "text": "$panel.attachment_slots" },
+        "list_view": { "x": 0.025, "y": 0.18, "w": 0.95, "h": 0.76 }
+      }
+    },
+    "parts_panel": { "x": 0.192708, "y": 0.825926, "w": 0.484375, "h": 0.127778 }
+  },
+  "metrics": {
+    "weapon_list_row_height": 0.096296,
+    "weapon_list_row_pitch": 0.109259,
+    "attachment_slot_count": 6
+  }
+}

@@ -10,10 +10,10 @@ namespace zg {
 void Camera::follow(float focus_x, float mouse_screen_x, bool has_mouse, float dt)
 {
     const float mouse_offset = has_mouse
-        ? (mouse_screen_x - kLogicalWidth * 0.5f) * kCameraLookAheadStrength
+        ? (mouse_screen_x - kGameplayViewWidth * 0.5f) * kCameraLookAheadStrength
         : 0.0f;
-    const float desired = focus_x - kLogicalWidth * 0.5f + mouse_offset;
-    const float max_x = kWorldWidth - kLogicalWidth;
+    const float desired = focus_x - kGameplayViewWidth * 0.5f + mouse_offset;
+    const float max_x = kWorldWidth - kGameplayViewWidth;
     target_x = clamp_float(desired, 0.0f, max_x);
     const float blend = clamp_float(kCameraLookAheadResponsiveness * dt, 0.0f, 1.0f);
     x += (target_x - x) * blend;

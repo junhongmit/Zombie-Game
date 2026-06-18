@@ -38,7 +38,7 @@ struct SmokeParticle {
 class EffectsSystem {
 public:
     void update(const CollisionMap& collision_map, float dt);
-    void spawn_blood(float x, float y, ImpactDirection direction);
+    void spawn_blood(float x, float y, ImpactDirection direction, float count_scale = 1.0f);
     void spawn_smoke(float x, float y, float angle_radians, float speed, int count);
 
     const BloodParticle* blood_particles() const;

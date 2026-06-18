@@ -8,6 +8,7 @@
 #include "Grenade.h"
 #include "MathUtil.h"
 #include "Player.h"
+#include "Presentation.h"
 #include "SpriteCatalog.h"
 #include "Texture.h"
 #include "Weapon.h"
@@ -20,29 +21,97 @@ namespace zg {
 
 namespace {
 
-float world_zoom(const Camera& camera)
+float ui_scale(const SDL_FRect& presentation_rect)
 {
-    return camera.render_zoom();
+    return presentation_scale(presentation_rect);
 }
 
-float world_origin_y(const Camera& camera)
+float world_zoom(const Camera& camera, const SDL_FRect& presentation_rect)
 {
-    return static_cast<float>(kLogicalHeight) - static_cast<float>(kLogicalHeight) * world_zoom(camera);
+    return camera.render_zoom() * ui_scale(presentation_rect);
 }
 
-float world_to_screen_x(float world_x, const Camera& camera)
+float world_origin_y(const Camera& camera, const SDL_FRect& presentation_rect)
 {
-    return (world_x - camera.render_x()) * world_zoom(camera);
+    return presentation_rect.y + presentation_rect.h -
+        kGameplayViewHeight * world_zoom(camera, presentation_rect);
 }
 
-float world_to_screen_y(float world_y, const Camera& camera)
+float world_to_screen_x(float world_x, const Camera& camera, const SDL_FRect& presentation_rect)
 {
-    return world_y * world_zoom(camera) + world_origin_y(camera) + camera.render_y();
+    return presentation_rect.x + (world_x - camera.render_x()) * world_zoom(camera, presentation_rect);
 }
 
-float scale_world_length(float value, const Camera& camera)
+float world_to_screen_y(float world_y, const Camera& camera, const SDL_FRect& presentation_rect)
 {
-    return value * world_zoom(camera);
+    return world_y * world_zoom(camera, presentation_rect) +
+        world_origin_y(camera, presentation_rect) +
+        camera.render_y() * ui_scale(presentation_rect);
+}
+
+float scale_world_length(float value, const Camera& camera, const SDL_FRect& presentation_rect)
+{
+    return value * world_zoom(camera, presentation_rect);
+}
+
+void render_texture_mirrored_to_rect(SDL_Renderer* renderer, const Texture& texture, const SDL_FRect& dst_rect)
+{
+    if (!texture.valid() || dst_rect.w <= 0.0f || dst_rect.h <= 0.0f) {
+        return;
+    }
+
+    const float texture_aspect = texture.width() / std::max(1.0f, texture.height());
+    const float target_aspect = dst_rect.w / std::max(1.0f, dst_rect.h);
+
+    if (std::fabs(texture_aspect - target_aspect) < 0.001f) {
+        SDL_RenderTexture(renderer, texture.get(), nullptr, &dst_rect);
+        return;
+    }
+
+    if (texture_aspect < target_aspect) {
+        const float center_width = dst_rect.h * texture_aspect;
+        const float side_width = std::max(0.0f, (dst_rect.w - center_width) * 0.5f);
+        const SDL_FRect center_dst{
+            dst_rect.x + std::floor((dst_rect.w - center_width) * 0.5f),
+            dst_rect.y,
+            center_width,
+            dst_rect.h
+        };
+        SDL_RenderTexture(renderer, texture.get(), nullptr, &center_dst);
+
+        if (side_width > 0.0f) {
+            const float strip_width = std::max(1.0f, std::floor(texture.width() * 0.125f));
+            const SDL_FRect left_src{0.0f, 0.0f, strip_width, texture.height()};
+            const SDL_FRect right_src{texture.width() - strip_width, 0.0f, strip_width, texture.height()};
+            const SDL_FRect left_dst{dst_rect.x, dst_rect.y, side_width, dst_rect.h};
+            const SDL_FRect right_dst{dst_rect.x + dst_rect.w - side_width, dst_rect.y, side_width, dst_rect.h};
+            const SDL_FPoint center{0.0f, 0.0f};
+            SDL_RenderTextureRotated(renderer, texture.get(), &left_src, &left_dst, 0.0, &center, SDL_FLIP_HORIZONTAL);
+            SDL_RenderTextureRotated(renderer, texture.get(), &right_src, &right_dst, 0.0, &center, SDL_FLIP_HORIZONTAL);
+        }
+        return;
+    }
+
+    const float center_height = dst_rect.w / texture_aspect;
+    const float side_height = std::max(0.0f, (dst_rect.h - center_height) * 0.5f);
+    const SDL_FRect center_dst{
+        dst_rect.x,
+        dst_rect.y + std::floor((dst_rect.h - center_height) * 0.5f),
+        dst_rect.w,
+        center_height
+    };
+    SDL_RenderTexture(renderer, texture.get(), nullptr, &center_dst);
+
+    if (side_height > 0.0f) {
+        const float strip_height = std::max(1.0f, std::floor(texture.height() * 0.125f));
+        const SDL_FRect top_src{0.0f, 0.0f, texture.width(), strip_height};
+        const SDL_FRect bottom_src{0.0f, texture.height() - strip_height, texture.width(), strip_height};
+        const SDL_FRect top_dst{dst_rect.x, dst_rect.y, dst_rect.w, side_height};
+        const SDL_FRect bottom_dst{dst_rect.x, dst_rect.y + dst_rect.h - side_height, dst_rect.w, side_height};
+        const SDL_FPoint center{0.0f, 0.0f};
+        SDL_RenderTextureRotated(renderer, texture.get(), &top_src, &top_dst, 0.0, &center, SDL_FLIP_VERTICAL);
+        SDL_RenderTextureRotated(renderer, texture.get(), &bottom_src, &bottom_dst, 0.0, &center, SDL_FLIP_VERTICAL);
+    }
 }
 
 } // namespace
@@ -54,12 +123,46 @@ Renderer2D::Renderer2D(SDL_Renderer* renderer)
 
 Renderer2D::~Renderer2D()
 {
+    if (frame_target_ != nullptr) {
+        SDL_DestroyTexture(frame_target_);
+        frame_target_ = nullptr;
+    }
+}
+
+bool Renderer2D::ensure_render_target()
+{
+    if (frame_target_ != nullptr) {
+        return true;
+    }
+
+    frame_target_ = SDL_CreateTexture(
+        renderer_,
+        SDL_PIXELFORMAT_RGBA8888,
+        SDL_TEXTUREACCESS_TARGET,
+        kInternalRenderWidth,
+        kInternalRenderHeight);
+    if (frame_target_ == nullptr) {
+        return false;
+    }
+
+    SDL_SetTextureScaleMode(frame_target_, SDL_SCALEMODE_LINEAR);
+    return true;
 }
 
 void Renderer2D::begin_frame()
 {
-    SDL_SetRenderDrawColor(renderer_, 11, 18, 26, 255);
+    if (!ensure_render_target()) {
+        presentation_rect_ = SDL_FRect{};
+        return;
+    }
+
+    presentation_rect_ = compute_presentation_rect(kInternalRenderWidth, kInternalRenderHeight);
+
+    SDL_SetRenderTarget(renderer_, frame_target_);
+    SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 255);
     SDL_RenderClear(renderer_);
+    SDL_SetRenderDrawColor(renderer_, 11, 18, 26, 255);
+    SDL_RenderFillRect(renderer_, &presentation_rect_);
 }
 
 void Renderer2D::render_scene(
@@ -117,7 +220,7 @@ void Renderer2D::render_scene(
             continue;
         }
         const float t = particle.age / particle.lifetime;
-        const float size = 10.0f + 18.0f * t;
+        const float size = kSmokeBaseSize + kSmokeGrowthSize * t;
         const float alpha = 1.0f - t;
         render_smoke_particle(assets.smoke, particle.x, particle.y, size, alpha, camera);
     }
@@ -125,13 +228,34 @@ void Renderer2D::render_scene(
 
 void Renderer2D::end_frame()
 {
+    if (frame_target_ == nullptr) {
+        return;
+    }
+
+    int output_width = 0;
+    int output_height = 0;
+    SDL_GetRenderOutputSize(renderer_, &output_width, &output_height);
+    const SDL_FRect output_rect = compute_aspect_rect(
+        output_width,
+        output_height,
+        kInternalRenderWidth,
+        kInternalRenderHeight);
+
+    SDL_SetRenderTarget(renderer_, nullptr);
+    SDL_SetRenderDrawColor(renderer_, 0, 0, 0, 255);
+    SDL_RenderClear(renderer_);
+    SDL_RenderTexture(renderer_, frame_target_, nullptr, &output_rect);
     SDL_RenderPresent(renderer_);
+}
+
+SDL_FRect Renderer2D::presentation_rect() const
+{
+    return presentation_rect_;
 }
 
 void Renderer2D::render_fullscreen(const Texture& texture)
 {
-    const SDL_FRect dst{0.0f, 0.0f, static_cast<float>(kLogicalWidth), static_cast<float>(kLogicalHeight)};
-    SDL_RenderTexture(renderer_, texture.get(), nullptr, &dst);
+    render_texture_mirrored_to_rect(renderer_, texture, presentation_rect_);
 }
 
 void Renderer2D::render_scrolling_layer(
@@ -141,31 +265,31 @@ void Renderer2D::render_scrolling_layer(
     float y,
     float height)
 {
-    const float zoom = world_zoom(camera);
-    const float view_width = static_cast<float>(kLogicalWidth) / zoom;
+    const float zoom = camera.render_zoom();
+    const float view_width = kGameplayViewWidth / zoom;
     const float max_source_x = std::max(0.0f, texture.width() - view_width);
     const float source_x = clamp_float(camera.render_x() * parallax, 0.0f, max_source_x);
     const SDL_FRect src{source_x, 0.0f, std::min(view_width, texture.width() - source_x), texture.height()};
     const SDL_FRect dst{
-        0.0f,
-        world_to_screen_y(y, camera),
-        static_cast<float>(kLogicalWidth),
-        scale_world_length(height, camera)
+        presentation_rect_.x,
+        world_to_screen_y(y, camera, presentation_rect_),
+        presentation_rect_.w,
+        scale_world_length(height, camera, presentation_rect_)
     };
     SDL_RenderTexture(renderer_, texture.get(), &src, &dst);
 }
 
 void Renderer2D::render_world_layer(const Texture& texture, const Camera& camera)
 {
-    const float view_width = static_cast<float>(kLogicalWidth) / world_zoom(camera);
+    const float view_width = kGameplayViewWidth / camera.render_zoom();
     const float max_source_x = std::max(0.0f, texture.width() - view_width);
     const float source_x = clamp_float(camera.render_x(), 0.0f, max_source_x);
     const SDL_FRect src{source_x, 0.0f, std::min(view_width, texture.width() - source_x), texture.height()};
     const SDL_FRect dst{
-        0.0f,
-        world_origin_y(camera) + camera.render_y(),
-        static_cast<float>(kLogicalWidth),
-        scale_world_length(static_cast<float>(kLogicalHeight), camera)
+        presentation_rect_.x,
+        world_origin_y(camera, presentation_rect_) + camera.render_y() * ui_scale(presentation_rect_),
+        presentation_rect_.w,
+        scale_world_length(kGameplayViewHeight, camera, presentation_rect_)
     };
     SDL_RenderTexture(renderer_, texture.get(), &src, &dst);
 }
@@ -173,7 +297,16 @@ void Renderer2D::render_world_layer(const Texture& texture, const Camera& camera
 void Renderer2D::render_blood_particle(float x, float y, const Camera& camera)
 {
     SDL_SetRenderDrawColor(renderer_, 188, 22, 24, 255);
-    SDL_RenderPoint(renderer_, std::round(world_to_screen_x(x, camera)), std::round(world_to_screen_y(y, camera)));
+    const float size = std::max(
+        kBloodMinScreenSize,
+        scale_world_length(kBloodRenderSize, camera, presentation_rect_));
+    const SDL_FRect rect{
+        std::round(world_to_screen_x(x, camera, presentation_rect_) - size * 0.5f),
+        std::round(world_to_screen_y(y, camera, presentation_rect_) - size * 0.5f),
+        size,
+        size
+    };
+    SDL_RenderFillRect(renderer_, &rect);
 }
 
 void Renderer2D::render_smoke_particle(
@@ -184,11 +317,14 @@ void Renderer2D::render_smoke_particle(
     float alpha,
     const Camera& camera)
 {
+    const float scaled_size = std::max(
+        kSmokeMinScreenSize,
+        scale_world_length(size, camera, presentation_rect_));
     SDL_FRect dst{
-        std::round(world_to_screen_x(x, camera) - scale_world_length(size, camera) * 0.5f),
-        std::round(world_to_screen_y(y, camera) - scale_world_length(size, camera) * 0.5f),
-        scale_world_length(size, camera),
-        scale_world_length(size, camera)
+        std::round(world_to_screen_x(x, camera, presentation_rect_) - scaled_size * 0.5f),
+        std::round(world_to_screen_y(y, camera, presentation_rect_) - scaled_size * 0.5f),
+        scaled_size,
+        scaled_size
     };
     SDL_SetTextureAlphaMod(texture.get(), static_cast<Uint8>(std::round(255.0f * clamp_float(alpha, 0.0f, 1.0f))));
     SDL_RenderTexture(renderer_, texture.get(), nullptr, &dst);
@@ -203,10 +339,10 @@ void Renderer2D::render_grenade(const Grenade& grenade, const Camera& camera)
 
     const float dx = grenade.x - grenade.prev_x;
     const float dy = grenade.y - grenade.prev_y;
-    const float length = scale_world_length(kGrenadeRenderLength, camera);
+    const float length = scale_world_length(kGrenadeRenderLength, camera, presentation_rect_);
     const float speed = std::sqrt(dx * dx + dy * dy);
-    const float start_x = std::round(world_to_screen_x(grenade.x, camera));
-    const float start_y = std::round(world_to_screen_y(grenade.y, camera));
+    const float start_x = std::round(world_to_screen_x(grenade.x, camera, presentation_rect_));
+    const float start_y = std::round(world_to_screen_y(grenade.y, camera, presentation_rect_));
     if (speed <= 0.0f) {
         SDL_SetRenderDrawColor(renderer_, 255, 226, 80, 255);
         SDL_RenderPoint(renderer_, start_x, start_y);
@@ -216,8 +352,8 @@ void Renderer2D::render_grenade(const Grenade& grenade, const Camera& camera)
     float end_x = start_x - dx / speed * length;
     float end_y = start_y - dy / speed * length;
     if (grenade.clip_tail) {
-        const float clip_x = std::round(world_to_screen_x(grenade.clip_x, camera));
-        const float clip_y = std::round(world_to_screen_y(grenade.clip_y, camera));
+        const float clip_x = std::round(world_to_screen_x(grenade.clip_x, camera, presentation_rect_));
+        const float clip_y = std::round(world_to_screen_y(grenade.clip_y, camera, presentation_rect_));
         const float clip_distance = std::sqrt((clip_x - start_x) * (clip_x - start_x) + (clip_y - start_y) * (clip_y - start_y));
         if (clip_distance < length) {
             end_x = clip_x;
@@ -247,23 +383,23 @@ void Renderer2D::render_explosion(const Assets& assets, const Explosion& explosi
 
     switch (explosion.direction) {
     case SurfaceImpactDirection::Top:
-        dst = SDL_FRect{world_to_screen_x(explosion.x - 49.0f, camera), world_to_screen_y(explosion.y - 93.0f, camera), scale_world_length(120.0f, camera), scale_world_length(109.0f, camera)};
+        dst = SDL_FRect{world_to_screen_x(explosion.x - 49.0f, camera, presentation_rect_), world_to_screen_y(explosion.y - 93.0f, camera, presentation_rect_), scale_world_length(120.0f, camera, presentation_rect_), scale_world_length(109.0f, camera, presentation_rect_)};
         break;
     case SurfaceImpactDirection::Bottom:
-        dst = SDL_FRect{world_to_screen_x(explosion.x - 49.0f, camera), world_to_screen_y(explosion.y - 16.0f, camera), scale_world_length(120.0f, camera), scale_world_length(109.0f, camera)};
+        dst = SDL_FRect{world_to_screen_x(explosion.x - 49.0f, camera, presentation_rect_), world_to_screen_y(explosion.y - 16.0f, camera, presentation_rect_), scale_world_length(120.0f, camera, presentation_rect_), scale_world_length(109.0f, camera, presentation_rect_)};
         flip = SDL_FLIP_VERTICAL;
         break;
     case SurfaceImpactDirection::Left:
-        dst = SDL_FRect{world_to_screen_x(explosion.x - 93.0f, camera), world_to_screen_y(explosion.y - 71.0f, camera), scale_world_length(120.0f, camera), scale_world_length(109.0f, camera)};
+        dst = SDL_FRect{world_to_screen_x(explosion.x - 93.0f, camera, presentation_rect_), world_to_screen_y(explosion.y - 71.0f, camera, presentation_rect_), scale_world_length(120.0f, camera, presentation_rect_), scale_world_length(109.0f, camera, presentation_rect_)};
         angle = -90.0;
         break;
     case SurfaceImpactDirection::Right:
-        dst = SDL_FRect{world_to_screen_x(explosion.x - 16.0f, camera), world_to_screen_y(explosion.y - 49.0f, camera), scale_world_length(120.0f, camera), scale_world_length(109.0f, camera)};
+        dst = SDL_FRect{world_to_screen_x(explosion.x - 16.0f, camera, presentation_rect_), world_to_screen_y(explosion.y - 49.0f, camera, presentation_rect_), scale_world_length(120.0f, camera, presentation_rect_), scale_world_length(109.0f, camera, presentation_rect_)};
         angle = 90.0;
         break;
     case SurfaceImpactDirection::None:
     default:
-        dst = SDL_FRect{world_to_screen_x(explosion.x - 49.0f, camera), world_to_screen_y(explosion.y - 93.0f, camera), scale_world_length(120.0f, camera), scale_world_length(109.0f, camera)};
+        dst = SDL_FRect{world_to_screen_x(explosion.x - 49.0f, camera, presentation_rect_), world_to_screen_y(explosion.y - 93.0f, camera, presentation_rect_), scale_world_length(120.0f, camera, presentation_rect_), scale_world_length(109.0f, camera, presentation_rect_)};
         break;
     }
 
@@ -279,7 +415,12 @@ void Renderer2D::render_explosion(const Assets& assets, const Explosion& explosi
 void Renderer2D::render_player(const Texture& hero, const Player& player, float alpha, const Camera& camera)
 {
     SDL_FRect src{sprites::hero_walk_sheet().frame_rect(player.walk_frame)};
-    SDL_FRect dst{std::round(world_to_screen_x(player.x, camera)), world_to_screen_y(player.y, camera), scale_world_length(18.0f, camera), scale_world_length(33.0f, camera)};
+    SDL_FRect dst{
+        std::round(world_to_screen_x(player.x, camera, presentation_rect_)),
+        world_to_screen_y(player.y, camera, presentation_rect_),
+        scale_world_length(18.0f, camera, presentation_rect_),
+        scale_world_length(33.0f, camera, presentation_rect_)
+    };
     const SDL_FPoint center{dst.w * 0.5f, dst.h * 0.5f};
     const SDL_FlipMode flip = player.facing_right ? SDL_FLIP_NONE : SDL_FLIP_HORIZONTAL;
     SDL_SetTextureAlphaMod(hero.get(), static_cast<Uint8>(std::round(clamp_float(alpha, 0.0f, 1.0f) * 255.0f)));
@@ -295,17 +436,17 @@ void Renderer2D::render_weapon(const Texture& weapon, const WeaponDefinition& de
 
     const float pivot_world_x = player.x + (player.facing_right ? 8.0f : 10.0f);
     const float pivot_world_y = player.y + 13.0f;
-    const float pivot_screen_x = std::round(world_to_screen_x(pivot_world_x, camera));
-    const float pivot_screen_y = std::round(world_to_screen_y(pivot_world_y, camera));
+    const float pivot_screen_x = std::round(world_to_screen_x(pivot_world_x, camera, presentation_rect_));
+    const float pivot_screen_y = std::round(world_to_screen_y(pivot_world_y, camera, presentation_rect_));
     const SDL_FPoint pivot{
-        scale_world_length(player.facing_right ? static_cast<float>(definition.route_x) : frame_width - static_cast<float>(definition.route_x), camera),
-        scale_world_length(static_cast<float>(definition.route_y), camera)
+        scale_world_length(player.facing_right ? static_cast<float>(definition.route_x) : frame_width - static_cast<float>(definition.route_x), camera, presentation_rect_),
+        scale_world_length(static_cast<float>(definition.route_y), camera, presentation_rect_)
     };
     const SDL_FRect dst{
         pivot_screen_x - pivot.x,
         pivot_screen_y - pivot.y,
-        scale_world_length(frame_width, camera),
-        scale_world_length(frame_height, camera)
+        scale_world_length(frame_width, camera, presentation_rect_),
+        scale_world_length(frame_height, camera, presentation_rect_)
     };
     const double aim_degrees = static_cast<double>(player.aim_angle_radians * 180.0f / 3.1415926535f);
     const double angle_degrees = player.facing_right ? -aim_degrees : 180.0 - aim_degrees;
@@ -322,9 +463,9 @@ void Renderer2D::render_bullet(const Bullet& bullet, const Camera& camera)
         return;
     }
 
-    const float start_x = std::round(world_to_screen_x(bullet.x, camera));
-    const float start_y = std::round(world_to_screen_y(bullet.y, camera));
-    const float length = scale_world_length(18.0f, camera);
+    const float start_x = std::round(world_to_screen_x(bullet.x, camera, presentation_rect_));
+    const float start_y = std::round(world_to_screen_y(bullet.y, camera, presentation_rect_));
+    const float length = scale_world_length(18.0f, camera, presentation_rect_);
     const float speed = std::sqrt(bullet.vx * bullet.vx + bullet.vy * bullet.vy);
     if (speed <= 0.0f) {
         return;
@@ -349,17 +490,22 @@ void Renderer2D::render_zombie(const Texture& texture, const Zombie& zombie, con
 
     if (zombie.alive) {
         SDL_FRect src{sprites::zombie_walk_sheet().frame_rect(zombie.walk_frame)};
-        SDL_FRect dst{std::round(world_to_screen_x(zombie.x, camera)), world_to_screen_y(zombie.y, camera), scale_world_length(kZombieWidth, camera), scale_world_length(kZombieHeight, camera)};
+        SDL_FRect dst{
+            std::round(world_to_screen_x(zombie.x, camera, presentation_rect_)),
+            world_to_screen_y(zombie.y, camera, presentation_rect_),
+            scale_world_length(kZombieWidth, camera, presentation_rect_),
+            scale_world_length(kZombieHeight, camera, presentation_rect_)
+        };
         const SDL_FPoint center{dst.w * 0.5f, dst.h * 0.5f};
         const SDL_FlipMode flip = zombie.walking_right ? SDL_FLIP_NONE : SDL_FLIP_HORIZONTAL;
         SDL_RenderTextureRotated(renderer_, texture.get(), &src, &dst, 0.0, &center, flip);
     } else {
         const SDL_FRect src{sprites::zombie_corpse_frame()};
         const SDL_FRect dst{
-            std::round(world_to_screen_x(zombie.x + 7.5f, camera)),
-            world_to_screen_y(zombie.y + kZombieCorpseRenderYOffset, camera),
-            scale_world_length(17.0f, camera),
-            scale_world_length(32.0f, camera)
+            std::round(world_to_screen_x(zombie.x + 7.5f, camera, presentation_rect_)),
+            world_to_screen_y(zombie.y + kZombieCorpseRenderYOffset, camera, presentation_rect_),
+            scale_world_length(17.0f, camera, presentation_rect_),
+            scale_world_length(32.0f, camera, presentation_rect_)
         };
         const SDL_FPoint center{dst.w * 0.5f, dst.h * 0.5f};
         const SDL_FlipMode flip = zombie.walking_right ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;

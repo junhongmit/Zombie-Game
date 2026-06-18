@@ -1,0 +1,125 @@
+{
+  "sheet": "progress1.png",
+  "controls": {
+    "progressbar_horizontal_track": {
+      "style_scale": 0.5,
+      "states": {
+        "normal": {
+          "frame": { "x": 0, "y": 0, "w": 486, "h": 34 },
+          "border": {
+            "slice": { "left": 10, "right": 10, "top": 10, "bottom": 10 }
+          },
+          "fill": {
+            "mode": "stretch",
+            "rect": { "x": 10, "y": 7, "w": 471, "h": 17 }
+          }
+        },
+        "disabled": {
+          "frame": { "x": 0, "y": 0, "w": 486, "h": 34 },
+          "border": {
+            "slice": { "left": 10, "right": 10, "top": 10, "bottom": 10 }
+          },
+          "fill": {
+            "mode": "stretch",
+            "rect": { "x": 10, "y": 7, "w": 471, "h": 17 }
+          }
+        }
+      },
+      "content_padding": { "left": 0, "right": 0, "top": 0, "bottom": 0 },
+      "regions": {
+        "track": { "x": 7, "y": 7, "w": 472, "h": 20 }
+      },
+      "min_size": { "w": 24, "h": 12 }
+    },
+    "progressbar_horizontal_fill": {
+      "style_scale": 0.5,
+      "states": {
+        "normal": {
+          "frame": { "x": 1, "y": 37, "w": 484, "h": 23 },
+          "border": {
+            "slice": { "left": 4, "right": 4, "top": 5, "bottom": 5 }
+          },
+          "fill": {
+            "mode": "stretch",
+            "rect": { "x": 5, "y": 42, "w": 476, "h": 13 }
+          }
+        },
+        "disabled": {
+          "frame": { "x": 128, "y": 24, "w": 128, "h": 24 },
+          "border": {
+            "slice": { "left": 10, "right": 10, "top": 7, "bottom": 7 }
+          },
+          "fill": {
+            "mode": "stretch",
+            "rect": { "x": 138, "y": 31, "w": 108, "h": 10 }
+          }
+        }
+      },
+      "content_padding": { "left": 0, "right": 0, "top": 0, "bottom": 0 },
+      "regions": {
+        "fill_track": { "x": 10, "y": 7, "w": 108, "h": 10 }
+      },
+      "min_size": { "w": 24, "h": 12 }
+    },
+    "progressbar_vertical_track": {
+      "style_scale": 1.0,
+      "states": {
+        "normal": {
+          "frame": { "x": 256, "y": 0, "w": 24, "h": 128 },
+          "border": {
+            "slice": { "left": 7, "right": 7, "top": 10, "bottom": 10 }
+          },
+          "fill": {
+            "mode": "stretch",
+            "rect": { "x": 263, "y": 10, "w": 10, "h": 108 }
+          }
+        },
+        "disabled": {
+          "frame": { "x": 280, "y": 0, "w": 24, "h": 128 },
+          "border": {
+            "slice": { "left": 7, "right": 7, "top": 10, "bottom": 10 }
+          },
+          "fill": {
+            "mode": "stretch",
+            "rect": { "x": 287, "y": 10, "w": 10, "h": 108 }
+          }
+        }
+      },
+      "content_padding": { "left": 0, "right": 0, "top": 0, "bottom": 0 },
+      "regions": {
+        "track": { "x": 7, "y": 10, "w": 10, "h": 108 }
+      },
+      "min_size": { "w": 12, "h": 24 }
+    },
+    "progressbar_vertical_fill": {
+      "style_scale": 1.0,
+      "states": {
+        "normal": {
+          "frame": { "x": 304, "y": 0, "w": 24, "h": 128 },
+          "border": {
+            "slice": { "left": 7, "right": 7, "top": 10, "bottom": 10 }
+          },
+          "fill": {
+            "mode": "stretch",
+            "rect": { "x": 311, "y": 10, "w": 10, "h": 108 }
+          }
+        },
+        "disabled": {
+          "frame": { "x": 328, "y": 0, "w": 24, "h": 128 },
+          "border": {
+            "slice": { "left": 7, "right": 7, "top": 10, "bottom": 10 }
+          },
+          "fill": {
+            "mode": "stretch",
+            "rect": { "x": 335, "y": 10, "w": 10, "h": 108 }
+          }
+        }
+      },
+      "content_padding": { "left": 0, "right": 0, "top": 0, "bottom": 0 },
+      "regions": {
+        "fill_track": { "x": 7, "y": 10, "w": 10, "h": 108 }
+      },
+      "min_size": { "w": 12, "h": 24 }
+    }
+  }
+}

@@ -3,11 +3,17 @@
 #include "AssetPaths.h"
 #include "Constants.h"
 #include "MathUtil.h"
+#include "WeaponRelight.h"
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <cstdlib>
+#include <chrono>
+#include <map>
+#include <sstream>
 
 namespace zg {
 
@@ -46,6 +52,416 @@ float parse_float(const std::string& text)
     return static_cast<float>(std::atof(text.c_str()));
 }
 
+bool file_exists(const std::string& path)
+{
+    std::FILE* file = std::fopen(path.c_str(), "rb");
+    if (file == nullptr) {
+        return false;
+    }
+    std::fclose(file);
+    return true;
+}
+
+struct JsonValue {
+    enum class Type {
+        Null,
+        Bool,
+        Number,
+        String,
+        Array,
+        Object
+    };
+
+    Type type = Type::Null;
+    bool bool_value = false;
+    double number_value = 0.0;
+    std::string string_value;
+    std::vector<JsonValue> array_value;
+    std::map<std::string, JsonValue> object_value;
+
+    bool is_object() const { return type == Type::Object; }
+    bool is_array() const { return type == Type::Array; }
+    bool is_string() const { return type == Type::String; }
+    bool is_number() const { return type == Type::Number; }
+    bool is_bool() const { return type == Type::Bool; }
+};
+
+class JsonParser {
+public:
+    explicit JsonParser(std::string text)
+        : text_(std::move(text))
+    {
+    }
+
+    bool parse(JsonValue* out)
+    {
+        if (out == nullptr) {
+            return false;
+        }
+        skip_ws();
+        if (!parse_value(out)) {
+            return false;
+        }
+        skip_ws();
+        return pos_ == text_.size();
+    }
+
+private:
+    void skip_ws()
+    {
+        while (pos_ < text_.size() && std::isspace(static_cast<unsigned char>(text_[pos_])) != 0) {
+            ++pos_;
+        }
+    }
+
+    bool parse_value(JsonValue* out)
+    {
+        skip_ws();
+        if (pos_ >= text_.size()) {
+            return false;
+        }
+        const char ch = text_[pos_];
+        if (ch == '{') {
+            return parse_object(out);
+        }
+        if (ch == '[') {
+            return parse_array(out);
+        }
+        if (ch == '"') {
+            out->type = JsonValue::Type::String;
+            return parse_string(&out->string_value);
+        }
+        if (ch == 't' || ch == 'f') {
+            return parse_bool(out);
+        }
+        if (ch == 'n') {
+            return parse_null(out);
+        }
+        if (ch == '-' || std::isdigit(static_cast<unsigned char>(ch)) != 0) {
+            return parse_number(out);
+        }
+        return false;
+    }
+
+    bool parse_object(JsonValue* out)
+    {
+        if (text_[pos_] != '{') {
+            return false;
+        }
+        ++pos_;
+        out->type = JsonValue::Type::Object;
+        out->object_value.clear();
+        skip_ws();
+        if (pos_ < text_.size() && text_[pos_] == '}') {
+            ++pos_;
+            return true;
+        }
+
+        while (pos_ < text_.size()) {
+            std::string key;
+            if (!parse_string(&key)) {
+                return false;
+            }
+            skip_ws();
+            if (pos_ >= text_.size() || text_[pos_] != ':') {
+                return false;
+            }
+            ++pos_;
+            JsonValue value;
+            if (!parse_value(&value)) {
+                return false;
+            }
+            out->object_value[key] = value;
+            skip_ws();
+            if (pos_ < text_.size() && text_[pos_] == '}') {
+                ++pos_;
+                return true;
+            }
+            if (pos_ >= text_.size() || text_[pos_] != ',') {
+                return false;
+            }
+            ++pos_;
+            skip_ws();
+        }
+        return false;
+    }
+
+    bool parse_array(JsonValue* out)
+    {
+        if (text_[pos_] != '[') {
+            return false;
+        }
+        ++pos_;
+        out->type = JsonValue::Type::Array;
+        out->array_value.clear();
+        skip_ws();
+        if (pos_ < text_.size() && text_[pos_] == ']') {
+            ++pos_;
+            return true;
+        }
+        while (pos_ < text_.size()) {
+            JsonValue value;
+            if (!parse_value(&value)) {
+                return false;
+            }
+            out->array_value.push_back(value);
+            skip_ws();
+            if (pos_ < text_.size() && text_[pos_] == ']') {
+                ++pos_;
+                return true;
+            }
+            if (pos_ >= text_.size() || text_[pos_] != ',') {
+                return false;
+            }
+            ++pos_;
+            skip_ws();
+        }
+        return false;
+    }
+
+    bool parse_string(std::string* out)
+    {
+        if (out == nullptr || pos_ >= text_.size() || text_[pos_] != '"') {
+            return false;
+        }
+        ++pos_;
+        out->clear();
+        while (pos_ < text_.size()) {
+            const char ch = text_[pos_++];
+            if (ch == '"') {
+                return true;
+            }
+            if (ch == '\\') {
+                if (pos_ >= text_.size()) {
+                    return false;
+                }
+                const char esc = text_[pos_++];
+                switch (esc) {
+                case '"': out->push_back('"'); break;
+                case '\\': out->push_back('\\'); break;
+                case '/': out->push_back('/'); break;
+                case 'b': out->push_back('\b'); break;
+                case 'f': out->push_back('\f'); break;
+                case 'n': out->push_back('\n'); break;
+                case 'r': out->push_back('\r'); break;
+                case 't': out->push_back('\t'); break;
+                default: return false;
+                }
+                continue;
+            }
+            out->push_back(ch);
+        }
+        return false;
+    }
+
+    bool parse_number(JsonValue* out)
+    {
+        const size_t start = pos_;
+        if (text_[pos_] == '-') {
+            ++pos_;
+        }
+        while (pos_ < text_.size() && std::isdigit(static_cast<unsigned char>(text_[pos_])) != 0) {
+            ++pos_;
+        }
+        if (pos_ < text_.size() && text_[pos_] == '.') {
+            ++pos_;
+            while (pos_ < text_.size() && std::isdigit(static_cast<unsigned char>(text_[pos_])) != 0) {
+                ++pos_;
+            }
+        }
+        if (pos_ < text_.size() && (text_[pos_] == 'e' || text_[pos_] == 'E')) {
+            ++pos_;
+            if (pos_ < text_.size() && (text_[pos_] == '+' || text_[pos_] == '-')) {
+                ++pos_;
+            }
+            while (pos_ < text_.size() && std::isdigit(static_cast<unsigned char>(text_[pos_])) != 0) {
+                ++pos_;
+            }
+        }
+
+        out->type = JsonValue::Type::Number;
+        out->number_value = std::atof(text_.substr(start, pos_ - start).c_str());
+        return true;
+    }
+
+    bool parse_bool(JsonValue* out)
+    {
+        if (text_.compare(pos_, 4, "true") == 0) {
+            pos_ += 4;
+            out->type = JsonValue::Type::Bool;
+            out->bool_value = true;
+            return true;
+        }
+        if (text_.compare(pos_, 5, "false") == 0) {
+            pos_ += 5;
+            out->type = JsonValue::Type::Bool;
+            out->bool_value = false;
+            return true;
+        }
+        return false;
+    }
+
+    bool parse_null(JsonValue* out)
+    {
+        if (text_.compare(pos_, 4, "null") != 0) {
+            return false;
+        }
+        pos_ += 4;
+        out->type = JsonValue::Type::Null;
+        return true;
+    }
+
+    std::string text_;
+    size_t pos_ = 0;
+};
+
+const JsonValue* json_member(const JsonValue& object, const char* key)
+{
+    if (!object.is_object()) {
+        return nullptr;
+    }
+    const std::map<std::string, JsonValue>::const_iterator it = object.object_value.find(key);
+    return it != object.object_value.end() ? &it->second : nullptr;
+}
+
+std::string json_string(const JsonValue& object, const char* key, const std::string& fallback = std::string())
+{
+    const JsonValue* value = json_member(object, key);
+    return value != nullptr && value->is_string() ? value->string_value : fallback;
+}
+
+int json_int(const JsonValue& object, const char* key, int fallback = 0)
+{
+    const JsonValue* value = json_member(object, key);
+    return value != nullptr && value->is_number() ? static_cast<int>(std::round(value->number_value)) : fallback;
+}
+
+float json_float(const JsonValue& object, const char* key, float fallback = 0.0f)
+{
+    const JsonValue* value = json_member(object, key);
+    return value != nullptr && value->is_number() ? static_cast<float>(value->number_value) : fallback;
+}
+
+bool json_bool(const JsonValue& object, const char* key, bool fallback = false)
+{
+    const JsonValue* value = json_member(object, key);
+    return value != nullptr && value->is_bool() ? value->bool_value : fallback;
+}
+
+std::string derive_preview_image_path(const std::string& name)
+{
+    const std::string lowered = lower_copy(name);
+    if (lowered.find("glock") != std::string::npos) {
+        return "assets/weapons/glock.png";
+    }
+    if (lowered.find("desert eagle") != std::string::npos || lowered.find("desert_eagle") != std::string::npos) {
+        return "assets/weapons/desert_eagle.png";
+    }
+    if (lowered.find("p90") != std::string::npos) {
+        return "assets/weapons/p90.png";
+    }
+    return std::string();
+}
+
+std::string derive_depth_image_path(const std::string& preview_image_path)
+{
+    if (preview_image_path.empty()) {
+        return std::string();
+    }
+    const size_t dot = preview_image_path.find_last_of('.');
+    if (dot == std::string::npos) {
+        return preview_image_path + "_depth.png";
+    }
+    return preview_image_path.substr(0, dot) + "_depth.png";
+}
+
+bool finalize_weapon_definition(SDL_Renderer* renderer, WeaponDefinition* definition, std::vector<WeaponDefinition>* definitions);
+
+void load_optional_preview_texture(SDL_Renderer* renderer, WeaponDefinition* definition)
+{
+    if (definition == nullptr) {
+        return;
+    }
+
+    if (definition->preview_image_path.empty()) {
+        definition->preview_image_path = derive_preview_image_path(definition->name);
+    }
+    if (definition->preview_image_path.empty()) {
+        return;
+    }
+
+    const std::string resolved = resolve_asset_path(definition->preview_image_path.c_str());
+    if (!file_exists(resolved)) {
+        return;
+    }
+    definition->preview_texture.load(renderer, definition->preview_image_path.c_str(), true);
+
+}
+
+bool load_weapon_catalog_json(SDL_Renderer* renderer, const std::string& resolved_path, std::vector<WeaponDefinition>* definitions)
+{
+    std::FILE* file = std::fopen(resolved_path.c_str(), "rb");
+    if (file == nullptr) {
+        return false;
+    }
+    std::fseek(file, 0, SEEK_END);
+    const long size = std::ftell(file);
+    std::rewind(file);
+    if (size <= 0) {
+        std::fclose(file);
+        return false;
+    }
+
+    std::string text;
+    text.resize(static_cast<size_t>(size));
+    const size_t read = std::fread(&text[0], 1, text.size(), file);
+    std::fclose(file);
+    if (read != text.size()) {
+        return false;
+    }
+
+    JsonValue root;
+    JsonParser parser(text);
+    if (!parser.parse(&root)) {
+        return false;
+    }
+    const JsonValue* weapons = json_member(root, "weapons");
+    if (weapons == nullptr || !weapons->is_array()) {
+        return false;
+    }
+
+    for (size_t i = 0; i < weapons->array_value.size(); ++i) {
+        const JsonValue& item = weapons->array_value[i];
+        if (!item.is_object()) {
+            continue;
+        }
+        WeaponDefinition current;
+        current.name = json_string(item, "name");
+        current.image_path = json_string(item, "image_path");
+        current.preview_image_path = json_string(item, "preview_image_path");
+        current.route_x = json_int(item, "route_x", 4);
+        current.route_y = json_int(item, "route_y", 3);
+        current.type = json_int(item, "type", 101) == 102 ? WeaponType::Grenade : WeaponType::Gun;
+        current.magazine_size = json_int(item, "magazine_size", 0);
+        current.damage = json_int(item, "damage", 0);
+        current.speed_rpm = json_int(item, "speed_rpm", 600);
+        current.price = json_int(item, "price", 0);
+        current.initial_reserve = json_int(item, "initial_reserve", 0);
+        current.full_auto = json_bool(item, "full_auto", false);
+        current.reload_duration = json_float(item, "reload_duration", 1.6f);
+        current.diameter = json_float(item, "diameter", 0.0f);
+        current.up = json_float(item, "up", 0.0f);
+        current.shake_duration = json_float(item, "shake_duration", current.shake_duration);
+        current.shake_magnitude = json_float(item, "shake_magnitude", current.shake_magnitude);
+        current.loudness = json_float(item, "loudness", current.loudness);
+        current.shoot_sound_path = json_string(item, "shoot_sound_path");
+        if (!finalize_weapon_definition(renderer, &current, definitions)) {
+            return false;
+        }
+    }
+    return !definitions->empty();
+}
+
 void apply_default_feedback(WeaponDefinition* definition)
 {
     if (definition->name == "Glock") {
@@ -75,6 +491,26 @@ void apply_default_feedback(WeaponDefinition* definition)
     }
 }
 
+bool finalize_weapon_definition(SDL_Renderer* renderer, WeaponDefinition* definition, std::vector<WeaponDefinition>* definitions)
+{
+    if (renderer == nullptr || definition == nullptr || definitions == nullptr ||
+        definition->name.empty() || definition->image_path.empty()) {
+        return false;
+    }
+
+    if (definition->initial_reserve <= 0) {
+        definition->initial_reserve = definition->magazine_size * 5;
+    }
+    apply_default_feedback(definition);
+    if (!definition->texture.load(renderer, definition->image_path.c_str(), true)) {
+        return false;
+    }
+    load_optional_preview_texture(renderer, definition);
+    definitions->push_back(std::move(*definition));
+    *definition = WeaponDefinition{};
+    return true;
+}
+
 } // namespace
 
 float WeaponDefinition::fire_interval_seconds() const
@@ -85,8 +521,20 @@ float WeaponDefinition::fire_interval_seconds() const
 bool WeaponCatalog::load(SDL_Renderer* renderer, const char* path)
 {
     definitions_.clear();
+    relight_jobs_.clear();
 
     const std::string resolved = resolve_asset_path(path);
+    if (lower_copy(resolved).size() >= 5 && lower_copy(resolved).substr(lower_copy(resolved).size() - 5) == ".json") {
+        const bool loaded = load_weapon_catalog_json(renderer, resolved, &definitions_);
+        if (loaded) {
+            relight_jobs_.resize(definitions_.size());
+            for (int i = 0; i < static_cast<int>(definitions_.size()); ++i) {
+                schedule_relight_job(i);
+            }
+        }
+        return loaded;
+    }
+
     std::FILE* file = std::fopen(resolved.c_str(), "r");
     if (file == nullptr) {
         return false;
@@ -104,16 +552,10 @@ bool WeaponCatalog::load(SDL_Renderer* renderer, const char* path)
         if (!line.empty() && line[0] == '#') {
             if (lower_copy(line).find("#weapon") == 0) {
                 if (has_current && !current.name.empty() && !current.image_path.empty()) {
-                    if (current.initial_reserve <= 0) {
-                        current.initial_reserve = current.magazine_size * 5;
-                    }
-                    apply_default_feedback(&current);
-                    if (!current.texture.load(renderer, current.image_path.c_str(), true)) {
+                    if (!finalize_weapon_definition(renderer, &current, &definitions_)) {
                         std::fclose(file);
                         return false;
                     }
-                    definitions_.push_back(std::move(current));
-                    current = WeaponDefinition{};
                 }
                 has_current = true;
             }
@@ -131,6 +573,8 @@ bool WeaponCatalog::load(SDL_Renderer* renderer, const char* path)
             current.name = value;
         } else if (key == "imagepath") {
             current.image_path = value;
+        } else if (key == "shopimage" || key == "previewimage" || key == "preview_image_path") {
+            current.preview_image_path = value;
         } else if (key == "type") {
             current.type = parse_int(value) == 102 ? WeaponType::Grenade : WeaponType::Gun;
         } else if (key == "magazine") {
@@ -168,17 +612,81 @@ bool WeaponCatalog::load(SDL_Renderer* renderer, const char* path)
     std::fclose(file);
 
     if (has_current && !current.name.empty() && !current.image_path.empty()) {
-        if (current.initial_reserve <= 0) {
-            current.initial_reserve = current.magazine_size * 5;
-        }
-        apply_default_feedback(&current);
-        if (!current.texture.load(renderer, current.image_path.c_str(), true)) {
+        if (!finalize_weapon_definition(renderer, &current, &definitions_)) {
             return false;
         }
-        definitions_.push_back(std::move(current));
     }
 
+    if (!definitions_.empty()) {
+        relight_jobs_.resize(definitions_.size());
+        for (int i = 0; i < static_cast<int>(definitions_.size()); ++i) {
+            schedule_relight_job(i);
+        }
+    }
     return !definitions_.empty();
+}
+
+void WeaponCatalog::schedule_relight_job(int index)
+{
+    if (index < 0 || index >= static_cast<int>(definitions_.size()) || index >= static_cast<int>(relight_jobs_.size())) {
+        return;
+    }
+    WeaponDefinition& definition = definitions_[static_cast<size_t>(index)];
+    if (definition.preview_image_path.empty()) {
+        return;
+    }
+
+    const std::string resolved = resolve_asset_path(definition.preview_image_path.c_str());
+    if (!file_exists(resolved)) {
+        return;
+    }
+
+    const std::string depth_path = derive_depth_image_path(definition.preview_image_path);
+    const std::string resolved_depth = resolve_asset_path(depth_path.c_str());
+    if (!file_exists(resolved_depth)) {
+        return;
+    }
+
+    RelightJob& job = relight_jobs_[static_cast<size_t>(index)];
+    job.scheduled = true;
+    job.uploaded = false;
+    const std::string albedo_path = definition.preview_image_path;
+    const std::string depth_copy = depth_path;
+    job.future = std::async(
+        std::launch::async,
+        [albedo_path, depth_copy]() {
+            WorkbenchRelightBakeResult result;
+            bake_workbench_relight_assets(albedo_path.c_str(), depth_copy.c_str(), &result);
+            return result;
+        });
+}
+
+void WeaponCatalog::update_relight_jobs(SDL_Renderer* renderer)
+{
+    if (renderer == nullptr) {
+        return;
+    }
+    for (size_t i = 0; i < relight_jobs_.size(); ++i) {
+        RelightJob& job = relight_jobs_[i];
+        if (!job.scheduled || job.uploaded || !job.future.valid()) {
+            continue;
+        }
+        const std::future_status status = job.future.wait_for(std::chrono::seconds(0));
+        if (status != std::future_status::ready) {
+            continue;
+        }
+
+        WorkbenchRelightBakeResult baked = job.future.get();
+        if (baked.valid) {
+            upload_workbench_relight_assets(
+                renderer,
+                baked,
+                &definitions_[i].workbench_lit_texture,
+                &definitions_[i].workbench_shadow_texture,
+                &definitions_[i].workbench_shadow_placement);
+        }
+        job.uploaded = true;
+    }
 }
 
 int WeaponCatalog::count() const

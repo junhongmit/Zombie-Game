@@ -38,8 +38,10 @@ public:
         float player_alpha,
         const Camera& camera);
     void end_frame();
+    SDL_FRect presentation_rect() const;
 
 private:
+    bool ensure_render_target();
     void render_fullscreen(const Texture& texture);
     void render_scrolling_layer(const Texture& texture, const Camera& camera, float parallax, float y, float height);
     void render_world_layer(const Texture& texture, const Camera& camera);
@@ -51,8 +53,9 @@ private:
     void render_weapon(const Texture& weapon, const WeaponDefinition& definition, const Player& player, float alpha, const Camera& camera);
     void render_player(const Texture& hero, const Player& player, float alpha, const Camera& camera);
     void render_zombie(const Texture& texture, const Zombie& zombie, const Camera& camera);
-
     SDL_Renderer* renderer_;
+    SDL_Texture* frame_target_ = nullptr;
+    SDL_FRect presentation_rect_{};
 };
 
 } // namespace zg

@@ -68,9 +68,9 @@ void Player::update(
     }
 
     if (airborne) {
-        kPlayerBody.move_vertically(collision_map, kGravity, -kPlayerJumpSpeed, kTerminalVelocity, dt, x, &y, &vy, &airborne, static_cast<float>(kLogicalHeight));
+        kPlayerBody.move_vertically(collision_map, kGravity, -kPlayerJumpSpeed, kTerminalVelocity, dt, x, &y, &vy, &airborne, kGameplayViewHeight);
         if (!airborne) {
-            y = kPlayerBody.snap_to_floor(collision_map, x, y, static_cast<float>(kLogicalHeight));
+            y = kPlayerBody.snap_to_floor(collision_map, x, y, kGameplayViewHeight);
             vy = 0.0f;
         }
     }
@@ -138,7 +138,7 @@ bool Player::try_use_stairs(const CollisionMap& collision_map)
         return false;
     }
 
-    y = kPlayerBody.snap_to_floor(collision_map, x, floor_y_from_index(destination_floor), static_cast<float>(kLogicalHeight));
+    y = kPlayerBody.snap_to_floor(collision_map, x, floor_y_from_index(destination_floor), kGameplayViewHeight);
     vy = 0.0f;
     airborne = false;
     walk_frame = 0;

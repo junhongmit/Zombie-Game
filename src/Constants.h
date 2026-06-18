@@ -2,8 +2,18 @@
 
 namespace zg {
 
-constexpr int kLogicalWidth = 640;
-constexpr int kLogicalHeight = 480;
+constexpr float kGameplayViewHeight = 480.0f;
+constexpr float kGameplayViewWidth = kGameplayViewHeight * (16.0f / 9.0f);
+constexpr int kGameplayPresentationWidth = 1600;
+constexpr int kGameplayPresentationHeight = 900;
+constexpr int kUiDesignWidth = 1920;
+constexpr int kUiDesignHeight = 1080;
+constexpr int kInternalRenderWidth = 1920;
+constexpr int kInternalRenderHeight = 1080;
+constexpr int kWindowDefaultWidth = 1600;
+constexpr int kWindowDefaultHeight = 900;
+constexpr int kWindowMinWidth = 1280;
+constexpr int kWindowMinHeight = 720;
 constexpr float kWorldWidth = 1072.0f;
 constexpr float kPlayerWidth = 18.0f;
 constexpr float kPlayerHeight = 33.0f;
@@ -11,7 +21,7 @@ constexpr float kFloor1Y = 400.0f;
 constexpr float kFloor2Y = 320.0f;
 constexpr float kFloor3Y = 240.0f;
 constexpr float kFloor4Y = 160.0f;
-constexpr float kGroundY = 480.0f - 48.0f - kPlayerHeight;
+constexpr float kGroundY = kGameplayViewHeight - 48.0f - kPlayerHeight;
 constexpr float kPlayerMoveSpeed = 90.0f;
 constexpr float kCameraLookAheadStrength = 1.0f;
 constexpr float kCameraLookAheadResponsiveness = 10.0f;
@@ -56,8 +66,14 @@ constexpr int kMaxBloodParticles = 512;
 constexpr int kMaxSmokeParticles = 128;
 constexpr int kBloodSpawnMin = 3;
 constexpr int kBloodSpawnMax = 8;
+constexpr float kDeathBloodCountScale = 2.6f;
 constexpr float kBloodLifetimeMin = 1.8f;
 constexpr float kBloodLifetimeMax = 4.2f;
+constexpr float kBloodRenderSize = 1.75f;
+constexpr float kBloodMinScreenSize = 2.0f;
+constexpr float kSmokeBaseSize = 10.0f;
+constexpr float kSmokeGrowthSize = 18.0f;
+constexpr float kSmokeMinScreenSize = 6.0f;
 constexpr int kHudDigitScale = 2;
 constexpr float kHudIndicatorRadius = 6.0f;
 constexpr float kHudFontPointSize = 11.0f;

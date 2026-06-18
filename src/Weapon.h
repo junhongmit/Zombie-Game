@@ -1,7 +1,9 @@
 #pragma once
 
 #include "Texture.h"
+#include "WeaponRelight.h"
 
+#include <future>
 #include <string>
 #include <vector>
 
@@ -17,6 +19,7 @@ enum class WeaponType {
 struct WeaponDefinition {
     std::string name;
     std::string image_path;
+    std::string preview_image_path;
     std::string shoot_sound_path;
     int route_x = 4;
     int route_y = 3;
@@ -34,6 +37,10 @@ struct WeaponDefinition {
     float shake_magnitude = 2.0f;
     float loudness = 0.85f;
     Texture texture;
+    Texture preview_texture;
+    Texture workbench_lit_texture;
+    Texture workbench_shadow_texture;
+    WorkbenchShadowPlacement workbench_shadow_placement;
 
     float fire_interval_seconds() const;
 };
@@ -41,11 +48,21 @@ struct WeaponDefinition {
 class WeaponCatalog {
 public:
     bool load(SDL_Renderer* renderer, const char* path);
+    void update_relight_jobs(SDL_Renderer* renderer);
     int count() const;
     const WeaponDefinition* definition(int index) const;
 
 private:
+    struct RelightJob {
+        bool scheduled = false;
+        bool uploaded = false;
+        std::future<WorkbenchRelightBakeResult> future;
+    };
+
+    void schedule_relight_job(int index);
+
     std::vector<WeaponDefinition> definitions_;
+    std::vector<RelightJob> relight_jobs_;
 };
 
 struct WeaponSlot {

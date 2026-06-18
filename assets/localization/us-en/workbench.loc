@@ -1,0 +1,41 @@
+# Workbench scene strings
+
+top.workbench=Workbench
+top.level=Lv. 2
+top.metal=Metal 350
+top.wood=Wood 126
+top.parts=Parts 78
+top.fabric=Fabric 23
+top.gems=Gems 0
+top.back=Esc Back
+
+panel.weapon_list=Weapons
+panel.weapon_stats=Weapon Stats
+panel.current_effects=Current Effects
+panel.upgrade_requirements=Upgrade Cost
+panel.attachment_slots=Attachment Slots
+panel.available_parts=Available Parts
+
+weapon.fire_mode.auto=Auto
+weapon.fire_mode.semi=Semi
+
+stat.damage=Damage
+stat.fire_rate=Fire Rate
+stat.magazine=Magazine
+stat.recoil=Recoil
+stat.loudness=Loudness
+
+effects.accuracy_up=+ Accuracy 10
+effects.reload_up=+ Reload Speed 15%
+
+upgrade.metal_parts=Metal Parts 78 / 15
+upgrade.polymer_parts=Polymer Parts 23 / 10
+upgrade.fabric=Fabric 12 / 5
+upgrade.tool_level=Tool Bench Lv. 2
+
+attachment.muzzle=Muzzle
+attachment.barrel=Barrel
+attachment.sight=Sight
+attachment.magazine=Magazine
+attachment.grip=Grip
+attachment.stock=Stock

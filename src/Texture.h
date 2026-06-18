@@ -16,6 +16,7 @@ public:
     Texture& operator=(Texture&& other) noexcept;
 
     bool load(SDL_Renderer* renderer, const char* path, bool use_white_color_key = false);
+    bool load_from_surface(SDL_Renderer* renderer, SDL_Surface* surface);
     void reset();
 
     SDL_Texture* get() const;

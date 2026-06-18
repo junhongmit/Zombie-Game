@@ -1,0 +1,35 @@
+{
+  "sheet": "panel1.png",
+  "controls": {
+    "panel_square_bronze": {
+      "style_scale": 0.6,
+      "states": {
+        "normal": {
+          "frame": { "x": 0, "y": 0, "w": 227, "h": 229 },
+          "border": {
+            "slice": { "left": 29, "right": 29, "top": 29, "bottom": 29 }
+          },
+          "fill": {
+            "mode": "stretch",
+            "rect": { "x": 29, "y": 29, "w": 169, "h": 173 }
+          }
+        },
+        "disabled": {
+          "frame": { "x": 244, "y": 0, "w": 198, "h": 229 },
+          "border": {
+            "slice": { "left": 29, "right": 29, "top": 29, "bottom": 29 }
+          },
+          "fill": {
+            "mode": "stretch",
+            "rect": { "x": 270, "y": 29, "w": 144, "h": 173 }
+          }
+        }
+      },
+      "content_padding": { "left": 14, "right": 14, "top": 14, "bottom": 14 },
+      "regions": {
+        "title": { "x": 24, "y": 14, "w": 179, "h": 24 }
+      },
+      "min_size": { "w": 28, "h": 28 }
+    }
+  }
+}

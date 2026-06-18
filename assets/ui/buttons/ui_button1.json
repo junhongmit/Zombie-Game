@@ -1,0 +1,56 @@
+{
+  "sheet": "button1.png",
+  "controls": {
+    "button_square_bronze": {
+      "style_scale": 0.75,
+      "states": {
+        "normal": {
+          "frame": { "x": 0, "y": 0, "w": 165, "h": 100 },
+          "border": {
+            "slice": { "left": 20, "right": 20, "top": 23, "bottom": 23 }
+          },
+          "fill": {
+            "mode": "stretch",
+            "rect": { "x": 20, "y": 23, "w": 125, "h": 56 }
+          }
+        },
+        "hover": {
+          "frame": { "x": 179, "y": 0, "w": 166, "h": 100 },
+          "border": {
+            "slice": { "left": 20, "right": 20, "top": 23, "bottom": 23 }
+          },
+          "fill": {
+            "mode": "stretch",
+            "rect": { "x": 198, "y": 23, "w": 125, "h": 56 }
+          }
+        },
+        "pressed": {
+          "frame": { "x": 361, "y": 0, "w": 170, "h": 100 },
+          "border": {
+            "slice": { "left": 20, "right": 20, "top": 23, "bottom": 23 }
+          },
+          "fill": {
+            "mode": "stretch",
+            "rect": { "x": 379, "y": 23, "w": 129, "h": 60 }
+          }
+        },
+        "disabled": {
+          "frame": { "x": 548, "y": 0, "w": 169, "h": 100 },
+          "border": {
+            "slice": { "left": 20, "right": 20, "top": 23, "bottom": 23 }
+          },
+          "fill": {
+            "mode": "stretch",
+            "rect": { "x": 566, "y": 22, "w": 129, "h": 60 }
+          }
+        }
+      },
+      "content_padding": { "left": 14, "right": 14, "top": 14, "bottom": 14 },
+      "regions": {
+        "icon": { "x": 18, "y": 18, "w": 28, "h": 28 },
+        "title": { "x": 18, "y": 18, "w": 129, "h": 28 }
+      },
+      "min_size": { "w": 28, "h": 28 }
+    }
+  }
+}

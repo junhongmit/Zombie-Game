@@ -1,0 +1,30 @@
+{
+  "rects": {
+    "equipment_panel": { "x": 0.123958, "y": 0.125, "w": 0.246875, "h": 0.56 },
+    "bag_panel": { "x": 0.369792, "y": 0.125, "w": 0.335417, "h": 0.56 },
+    "resources_panel": { "x": 0.708333, "y": 0.125, "w": 0.177083, "h": 0.416667 },
+    "weight_panel": { "x": 0.708333, "y": 0.553704, "w": 0.177083, "h": 0.185185 },
+    "backpack_panel": { "x": 0.25, "y": 0.690741, "w": 0.455208, "h": 0.192593 },
+    "action_bar": { "x": 0.25, "y": 0.893519, "w": 0.455208, "h": 0.053704 },
+    "equipment_entry_start": { "x": 0.133333, "y": 0.162963, "w": 0.104167, "h": 0.12037 },
+    "paperdoll_rect": { "x": 0.252083, "y": 0.205556, "w": 0.09375, "h": 0.283333 },
+    "paperdoll_slot_start": { "x": 0.328125, "y": 0.190741, "w": 0.036458, "h": 0.057407 },
+    "bag_slot_start": { "x": 0.383333, "y": 0.162963, "w": 0.05, "h": 0.083333 },
+    "backpack_option_start": { "x": 0.264583, "y": 0.730556, "w": 0.078125, "h": 0.146296 },
+    "action_hint_start": { "x": 0.2625, "y": 0.901852, "w": 0.079167, "h": 0.040741 }
+  },
+  "metrics": {
+    "equipment_entry_gap": 0.009259,
+    "equipment_entry_count": 4,
+    "paperdoll_slot_gap": 0.014815,
+    "paperdoll_slot_count": 4,
+    "bag_slot_gap_x": 0.004167,
+    "bag_slot_gap_y": 0.007407,
+    "bag_slot_columns": 6,
+    "bag_slot_rows": 4,
+    "backpack_option_gap": 0.010417,
+    "backpack_option_count": 5,
+    "action_hint_gap": 0.010417,
+    "action_hint_count": 5
+  }
+}

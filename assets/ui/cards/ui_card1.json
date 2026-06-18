@@ -1,0 +1,60 @@
+{
+  "sheet": "card1.png",
+  "controls": {
+    "card1_weapon_row": {
+      "style_scale": 0.35,
+      "states": {
+        "normal": {
+          "frame": { "x": 0, "y": 0, "w": 728, "h": 212 },
+          "border": {
+            "slice": { "left": 44, "right": 44, "top": 44, "bottom": 44 }
+          },
+          "fill": {
+            "mode": "stretch",
+            "rect": { "x": 44, "y": 44, "w": 644, "h": 127 }
+          }
+        },
+        "hover": {
+          "frame": { "x": 0, "y": 212, "w": 728, "h": 205 },
+          "border": {
+            "slice": { "left": 44, "right": 44, "top": 43, "bottom": 43 }
+          },
+          "fill": {
+            "mode": "stretch",
+            "rect": { "x": 44, "y": 254, "w": 642, "h": 122 }
+          }
+        },
+        "pressed": {
+          "frame": { "x": 0, "y": 417, "w": 728, "h": 205 },
+          "border": {
+            "slice": { "left": 44, "right": 44, "top": 43, "bottom": 43 }
+          },
+          "fill": {
+            "mode": "stretch",
+            "rect": { "x": 44, "y": 461, "w": 644, "h": 118 }
+          }
+        },
+        "disabled": {
+          "frame": { "x": 0, "y": 622, "w": 728, "h": 204 },
+          "border": {
+            "slice": { "left": 44, "right": 44, "top": 47, "bottom": 47 }
+          },
+          "fill": {
+            "mode": "stretch",
+            "rect": { "x": 44, "y": 670, "w": 641, "h": 119 }
+          }
+        }
+      },
+      "content_padding": { "left": 28, "right": 28, "top": 22, "bottom": 22 },
+      "regions": {
+        "icon": { "x": 24, "y": 24, "w": 96, "h": 96 },
+        "title": { "x": 140, "y": 24, "w": 380, "h": 38 },
+        "subtitle": { "x": 140, "y": 68, "w": 320, "h": 28 },
+        "badge": { "x": 654, "y": 24, "w": 40, "h": 40 },
+        "meta": { "x": 140, "y": 104, "w": 300, "h": 24 }
+      },
+      "min_size": { "w": 220, "h": 72 },
+      "max_size": { "w": 364, "h": 103 }
+    }
+  }
+}
