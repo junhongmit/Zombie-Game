@@ -2,7 +2,7 @@
   "sheet": "button1.png",
   "controls": {
     "button_square_bronze": {
-      "style_scale": 0.75,
+      "style_scale": 0.6,
       "states": {
         "normal": {
           "frame": { "x": 0, "y": 0, "w": 165, "h": 100 },

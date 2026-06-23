@@ -352,13 +352,37 @@ std::string derive_preview_image_path(const std::string& name)
 {
     const std::string lowered = lower_copy(name);
     if (lowered.find("glock") != std::string::npos) {
-        return "assets/weapons/glock.png";
+        return "assets/weapons/glock/preview.png";
     }
     if (lowered.find("desert eagle") != std::string::npos || lowered.find("desert_eagle") != std::string::npos) {
-        return "assets/weapons/desert_eagle.png";
+        return "assets/weapons/desert_eagle/preview.png";
     }
     if (lowered.find("p90") != std::string::npos) {
-        return "assets/weapons/p90.png";
+        return "assets/weapons/p90/preview.png";
+    }
+    return std::string();
+}
+
+std::string derive_icon_image_path_from_preview(const std::string& preview_image_path)
+{
+    if (preview_image_path.empty()) {
+        return std::string();
+    }
+    const size_t dot = preview_image_path.find_last_of('.');
+    if (dot == std::string::npos) {
+        return preview_image_path + "_icon.png";
+    }
+    return preview_image_path.substr(0, dot) + "_icon.png";
+}
+
+std::string derive_icon_image_path(const std::string& name)
+{
+    const std::string lowered = lower_copy(name);
+    if (lowered.find("glock") != std::string::npos) {
+        return "assets/weapons/glock/icon.png";
+    }
+    if (lowered.find("desert eagle") != std::string::npos || lowered.find("desert_eagle") != std::string::npos) {
+        return "assets/weapons/desert_eagle/icon.png";
     }
     return std::string();
 }
@@ -396,6 +420,29 @@ void load_optional_preview_texture(SDL_Renderer* renderer, WeaponDefinition* def
     }
     definition->preview_texture.load(renderer, definition->preview_image_path.c_str(), true);
 
+}
+
+void load_optional_icon_texture(SDL_Renderer* renderer, WeaponDefinition* definition)
+{
+    if (definition == nullptr) {
+        return;
+    }
+
+    if (definition->icon_image_path.empty()) {
+        definition->icon_image_path = derive_icon_image_path_from_preview(definition->preview_image_path);
+    }
+    if (definition->icon_image_path.empty()) {
+        definition->icon_image_path = derive_icon_image_path(definition->name);
+    }
+    if (definition->icon_image_path.empty()) {
+        return;
+    }
+
+    const std::string resolved = resolve_asset_path(definition->icon_image_path.c_str());
+    if (!file_exists(resolved)) {
+        return;
+    }
+    definition->icon_texture.load(renderer, definition->icon_image_path.c_str(), true);
 }
 
 bool load_weapon_catalog_json(SDL_Renderer* renderer, const std::string& resolved_path, std::vector<WeaponDefinition>* definitions)
@@ -439,6 +486,8 @@ bool load_weapon_catalog_json(SDL_Renderer* renderer, const std::string& resolve
         current.name = json_string(item, "name");
         current.image_path = json_string(item, "image_path");
         current.preview_image_path = json_string(item, "preview_image_path");
+        current.icon_image_path = json_string(item, "icon_image_path");
+        current.ui_card_template = json_string(item, "ui_card_template", "default");
         current.route_x = json_int(item, "route_x", 4);
         current.route_y = json_int(item, "route_y", 3);
         current.type = json_int(item, "type", 101) == 102 ? WeaponType::Grenade : WeaponType::Gun;
@@ -506,6 +555,7 @@ bool finalize_weapon_definition(SDL_Renderer* renderer, WeaponDefinition* defini
         return false;
     }
     load_optional_preview_texture(renderer, definition);
+    load_optional_icon_texture(renderer, definition);
     definitions->push_back(std::move(*definition));
     *definition = WeaponDefinition{};
     return true;
@@ -575,6 +625,10 @@ bool WeaponCatalog::load(SDL_Renderer* renderer, const char* path)
             current.image_path = value;
         } else if (key == "shopimage" || key == "previewimage" || key == "preview_image_path") {
             current.preview_image_path = value;
+        } else if (key == "iconimage" || key == "icon_image_path" || key == "icon") {
+            current.icon_image_path = value;
+        } else if (key == "uicardtemplate" || key == "ui_card_template" || key == "cardtemplate") {
+            current.ui_card_template = value;
         } else if (key == "type") {
             current.type = parse_int(value) == 102 ? WeaponType::Grenade : WeaponType::Gun;
         } else if (key == "magazine") {

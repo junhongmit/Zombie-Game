@@ -1,0 +1,41 @@
+top.wood=Wood
+top.metal=Metal
+top.med=Med
+top.gems=Gems
+
+panel.link_status=Black Market Radio
+panel.cart=Purchased Ledger
+panel.next_contact=Next Contact
+panel.rules=Trade Rules
+
+merchant.alias=Arms Broker
+merchant.signal=Signal: Good
+merchant.trust=Trust Level: Lv.2
+
+cart.empty=Empty
+cart.total=Total
+
+rules.line1=1. Pay first, receive later
+rules.line2=2. Delivery by relay drop
+rules.line3=3. No refunds, no questions
+
+catalog.title=Black Market Catalog
+catalog.subtitle=Confidential
+
+category.all=All
+category.pistol=Pistol
+category.shotgun=Shotgun
+category.rifle=Rifle
+category.sniper=Sniper
+category.other=Other
+category.smg=SMG
+
+button.prev=Prev
+button.next=Next
+button.close_link=Close Link
+
+stat.damage=Damage
+stat.fire_rate=Fire Rate
+stat.accuracy=Accuracy
+stat.stability=Stability
+stat.magazine=Magazine

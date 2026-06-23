@@ -1,17 +1,19 @@
 {
   "rects": {
-    "equipment_panel": { "x": 0.123958, "y": 0.125, "w": 0.246875, "h": 0.56 },
-    "bag_panel": { "x": 0.369792, "y": 0.125, "w": 0.335417, "h": 0.56 },
-    "resources_panel": { "x": 0.708333, "y": 0.125, "w": 0.177083, "h": 0.416667 },
-    "weight_panel": { "x": 0.708333, "y": 0.553704, "w": 0.177083, "h": 0.185185 },
-    "backpack_panel": { "x": 0.25, "y": 0.690741, "w": 0.455208, "h": 0.192593 },
-    "action_bar": { "x": 0.25, "y": 0.893519, "w": 0.455208, "h": 0.053704 },
-    "equipment_entry_start": { "x": 0.133333, "y": 0.162963, "w": 0.104167, "h": 0.12037 },
-    "paperdoll_rect": { "x": 0.252083, "y": 0.205556, "w": 0.09375, "h": 0.283333 },
-    "paperdoll_slot_start": { "x": 0.328125, "y": 0.190741, "w": 0.036458, "h": 0.057407 },
-    "bag_slot_start": { "x": 0.383333, "y": 0.162963, "w": 0.05, "h": 0.083333 },
-    "backpack_option_start": { "x": 0.264583, "y": 0.730556, "w": 0.078125, "h": 0.146296 },
-    "action_hint_start": { "x": 0.2625, "y": 0.901852, "w": 0.079167, "h": 0.040741 }
+    "equipment_panel": { "x": 0.123958, "y": 0.158, "w": 0.246875, "h": 0.60, "skin": "panel_square_bronze" },
+    "bag_panel": { "x": 0.369792, "y": 0.158, "w": 0.335417, "h": 0.60, "skin": "panel_square_bronze" },
+    "resources_panel": { "x": 0.708333, "y": 0.158, "w": 0.177083, "h": 0.448667, "skin": "panel_square_bronze" },
+    "weight_panel": { "x": 0.708333, "y": 0.618704, "w": 0.177083, "h": 0.160185, "skin": "panel_square_bronze" },
+    "backpack_panel": { "x": 0.25, "y": 0.690741, "w": 0.455208, "h": 0.192593, "skin": "panel_square_bronze" },
+    "action_bar": { "x": 0.25, "y": 0.845, "w": 0.455208, "h": 0.053704, "skin": "panel_square_bronze" },
+    "equipment_entry_start": { "x": 0.133333, "y": 0.196, "w": 0.104167, "h": 0.12037 },
+    "paperdoll_rect": { "x": 0.252083, "y": 0.238, "w": 0.09375, "h": 0.283333 },
+    "paperdoll_slot_start": { "x": 0.328125, "y": 0.223, "w": 0.036458, "h": 0.057407 },
+    "bag_slot_start": { "x": 0.383333, "y": 0.196, "w": 0.05, "h": 0.083333 },
+    "backpack_option_start": { "x": 0.260417, "y": 0.548, "w": 0.078125, "h": 0.146296 },
+    "action_hint_start": { "x": 0.2625, "y": 0.901852, "w": 0.079167, "h": 0.040741 },
+    "close_button": { "x": 0.664583, "y": 0.161, "w": 0.028125, "h": 0.05 },
+    "page_bounds": { "x": 0.123958, "y": 0.158, "w": 0.761458, "h": 0.740704 }
   },
   "metrics": {
     "equipment_entry_gap": 0.009259,
@@ -23,8 +25,16 @@
     "bag_slot_columns": 6,
     "bag_slot_rows": 4,
     "backpack_option_gap": 0.010417,
-    "backpack_option_count": 5,
+    "backpack_option_count": 1,
     "action_hint_gap": 0.010417,
     "action_hint_count": 5
+  },
+  "skins": {
+    "equipment_card": "card1_weapon_row",
+    "bag_slot": "card3_inventory_slot",
+    "backpack_card": "card1_weapon_row",
+    "action_button": "button_square_bronze",
+    "close_button": "button_square_bronze",
+    "paperdoll_slot": "card1_weapon_row"
   }
 }

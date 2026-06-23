@@ -1,0 +1,60 @@
+{
+  "sheet": "card3.png",
+  "controls": {
+    "card3_inventory_slot": {
+      "style_scale": 0.35,
+      "states": {
+        "normal": {
+          "frame": { "x": 0, "y": 0, "w": 523, "h": 683 },
+          "border": {
+            "slice": { "left": 27, "right": 27, "top": 27, "bottom": 27 }
+          },
+          "fill": {
+            "mode": "stretch",
+            "rect": { "x": 27, "y": 27, "w": 469, "h": 630 }
+          }
+        },
+        "hover": {
+          "frame": { "x": 524, "y": 0, "w": 523, "h": 683 },
+          "border": {
+            "slice": { "left": 27, "right": 27, "top": 27, "bottom": 27 }
+          },
+          "fill": {
+            "mode": "stretch",
+            "rect": { "x": 549, "y": 27, "w": 469, "h": 630 }
+          }
+        },
+        "pressed": {
+          "frame": { "x": 1048, "y": 0, "w": 523, "h": 683 },
+          "border": {
+            "slice": { "left": 27, "right": 27, "top": 27, "bottom": 27 }
+          },
+          "fill": {
+            "mode": "stretch",
+            "rect": { "x": 1074, "y": 30, "w": 469, "h": 630 }
+          }
+        },
+        "disabled": {
+          "frame": { "x": 1572, "y": 0, "w": 523, "h": 683 },
+          "border": {
+            "slice": { "left": 27, "right": 27, "top": 27, "bottom": 27 }
+          },
+          "fill": {
+            "mode": "stretch",
+            "rect": { "x": 1597, "y": 30, "w": 469, "h": 630 }
+          }
+        }
+      },
+      "content_padding": { "left": 30, "right": 30, "top": 30, "bottom": 30 },
+      "regions": {
+        "icon": { "x": 72, "y": 52, "w": 381, "h": 244 },
+        "title": { "x": 46, "y": 334, "w": 430, "h": 56 },
+        "subtitle": { "x": 46, "y": 392, "w": 312, "h": 36 },
+        "meta": { "x": 368, "y": 392, "w": 108, "h": 36 },
+        "badge": { "x": 420, "y": 44, "w": 54, "h": 54 }
+      },
+      "min_size": { "w": 96, "h": 94 },
+      "max_size": { "w": 156, "h": 153 }
+    }
+  }
+}

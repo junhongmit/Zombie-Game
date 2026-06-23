@@ -6,12 +6,17 @@
 #include "../Texture.h"
 #include "../Weapon.h"
 #include "Card.h"
+#include "Button.h"
+#include "BoxItem.h"
+#include "Canvas.h"
 #include "Panel.h"
+#include "TextItem.h"
 
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdio>
+#include <memory>
 
 namespace zg {
 
@@ -42,6 +47,65 @@ float ui_scale_for_rect(const SDL_FRect& rect)
         rect.h / static_cast<float>(kUiDesignHeight));
 }
 
+void render_texture_fit(
+    SDL_Renderer* renderer,
+    const Texture& texture,
+    const SDL_FRect& dst_rect)
+{
+    if (!texture.valid() || dst_rect.w <= 0.0f || dst_rect.h <= 0.0f) {
+        return;
+    }
+
+    const float scale = std::min(
+        dst_rect.w / std::max(1.0f, texture.width()),
+        dst_rect.h / std::max(1.0f, texture.height()));
+    const float draw_w = std::round(texture.width() * scale);
+    const float draw_h = std::round(texture.height() * scale);
+    const SDL_FRect dst{
+        dst_rect.x + std::floor((dst_rect.w - draw_w) * 0.5f),
+        dst_rect.y + std::floor((dst_rect.h - draw_h) * 0.5f),
+        draw_w,
+        draw_h
+    };
+    SDL_RenderTexture(renderer, texture.get(), nullptr, &dst);
+}
+
+SDL_FRect rect_within(const SDL_FRect& parent, const NormalizedRect& child)
+{
+    return SDL_FRect{
+        parent.x + parent.w * child.x,
+        parent.y + parent.h * child.y,
+        parent.w * child.w,
+        parent.h * child.h
+    };
+}
+
+ControlVisualState weapon_row_state(
+    int index,
+    int active_index,
+    const SDL_FRect& row_rect,
+    float mouse_x,
+    float mouse_y,
+    bool mouse_in_view,
+    bool mouse_down,
+    int armed_index)
+{
+    if (index == active_index) {
+        return ControlVisualState::Pressed;
+    }
+
+    const bool hovered = mouse_in_view &&
+        mouse_x >= row_rect.x && mouse_x <= row_rect.x + row_rect.w &&
+        mouse_y >= row_rect.y && mouse_y <= row_rect.y + row_rect.h;
+    if (hovered && mouse_down && armed_index == index) {
+        return ControlVisualState::Pressed;
+    }
+    if (hovered) {
+        return ControlVisualState::Hover;
+    }
+    return ControlVisualState::Normal;
+}
+
 ui::Panel make_panel(float x, float y, float w, float h, const char* title)
 {
     ui::Panel panel(x, y, w, h);
@@ -57,6 +121,23 @@ SDL_FRect panel_content_logical_rect(
     return ui_present_to_logical_rect(
         style.content_rect(ui_logical_to_present_rect(logical_rect, presentation_rect)),
         presentation_rect);
+}
+
+const ControlStyle& resolve_skin(const Assets& assets, const std::string& skin_name, const ControlStyle& fallback)
+{
+    if (const ControlStyle* skin = assets.find_ui_skin(skin_name)) {
+        return *skin;
+    }
+    if (skin_name == "panel_square_bronze") {
+        return assets.panel_skin;
+    }
+    if (skin_name == "card1_weapon_row") {
+        return assets.weapon_card_style;
+    }
+    if (skin_name == "button_square_bronze") {
+        return assets.title_button_skin;
+    }
+    return fallback;
 }
 
 struct AttachmentOption {
@@ -126,21 +207,35 @@ WorkbenchScreen::WorkbenchScreen(SDL_Renderer* renderer)
       attachment_strip_view_(0.0f, 0.0f, 1.0f, 1.0f, ui::ListViewOrientation::Horizontal),
       attachment_popup_view_(0.0f, 0.0f, 1.0f, 1.0f, ui::ListViewOrientation::Horizontal)
 {
+    layout_hot_reload_.set_path("assets/ui/layouts/workbench.json");
     layout_.load("assets/ui/layouts/workbench.json");
-    strings_.load("assets/localization/us-en/workbench.loc");
+    layout_hot_reload_.mark_loaded();
+    if (!strings_.load("assets/localization/zh-cn/workbench.loc")) {
+        strings_.load("assets/localization/us-en/workbench.loc");
+    }
     font_point_size_ = static_cast<int>(kHudFontPointSize);
     font_ = load_ui_font(font_point_size_);
+    list_title_font_ = load_ui_font(static_cast<int>(std::round(font_point_size_ * 1.95f)));
+    list_subtitle_font_ = load_ui_font(static_cast<int>(std::round(font_point_size_ * 1.55f)));
 }
 
 WorkbenchScreen::~WorkbenchScreen()
 {
+    if (list_title_font_ != nullptr) {
+        TTF_CloseFont(list_title_font_);
+        list_title_font_ = nullptr;
+    }
+    if (list_subtitle_font_ != nullptr) {
+        TTF_CloseFont(list_subtitle_font_);
+        list_subtitle_font_ = nullptr;
+    }
     if (font_ != nullptr) {
         TTF_CloseFont(font_);
         font_ = nullptr;
     }
 }
 
-void WorkbenchScreen::render(
+bool WorkbenchScreen::render(
     const Assets& assets,
     WeaponState& weapon_state,
     const SDL_FRect& presentation_rect,
@@ -154,6 +249,10 @@ void WorkbenchScreen::render(
     bool mouse_pressed,
     bool mouse_released)
 {
+    bool close_requested = false;
+    if (kEnableUiLayoutHotReload && layout_hot_reload_.poll_changed()) {
+        layout_.load("assets/ui/layouts/workbench.json");
+    }
     presentation_rect_ = presentation_rect;
     ensure_font(ui_scale_for_rect(presentation_rect_));
 
@@ -166,16 +265,38 @@ void WorkbenchScreen::render(
     SDL_RenderTexture(renderer_, assets.bench.get(), nullptr, &full_screen_rect);
 
     render_resource_strip();
+    const SDL_FRect close_rect = layout_.close_button_rect();
+    ui::Button close_button("X", close_rect.x, close_rect.y, close_rect.w, close_rect.h, true);
+    close_requested = close_button.process_pointer(
+        mouse_x,
+        mouse_y,
+        mouse_in_view,
+        mouse_pressed,
+        mouse_released,
+        close_armed_);
+    close_button.render(
+        renderer_,
+        assets.title_button_skin,
+        font_,
+        presentation_rect_,
+        mouse_x,
+        mouse_y,
+        mouse_in_view,
+        mouse_down,
+        close_armed_,
+        SDL_Color{228, 205, 170, 255},
+        SDL_Color{156, 142, 122, 255},
+        236);
 
     const SDL_Color panel_text{241, 226, 205, 255};
     const SDL_FRect stats_panel = layout_.stats_panel_rect();
     const SDL_FRect effects_panel = layout_.effects_panel_rect();
     const SDL_FRect upgrade_panel = layout_.upgrade_panel_rect();
-    make_panel(layout_.weapon_list_panel_rect().x, layout_.weapon_list_panel_rect().y, layout_.weapon_list_panel_rect().w, layout_.weapon_list_panel_rect().h, "").render(renderer_, assets.panel_skin, font_, presentation_rect_, panel_text);
-    make_panel(layout_.attachments_panel_rect().x, layout_.attachments_panel_rect().y, layout_.attachments_panel_rect().w, layout_.attachments_panel_rect().h, "").render(renderer_, assets.panel_skin, font_, presentation_rect_, panel_text);
-    make_panel(stats_panel.x, stats_panel.y, stats_panel.w, stats_panel.h, tr("panel.weapon_stats", "Stats").c_str()).render(renderer_, assets.panel_skin, font_, presentation_rect_, panel_text);
-    make_panel(effects_panel.x, effects_panel.y, effects_panel.w, effects_panel.h, tr("panel.current_effects", "Effects").c_str()).render(renderer_, assets.panel_skin, font_, presentation_rect_, panel_text);
-    make_panel(upgrade_panel.x, upgrade_panel.y, upgrade_panel.w, upgrade_panel.h, tr("panel.upgrade_requirements", "Upgrade Cost").c_str()).render(renderer_, assets.panel_skin, font_, presentation_rect_, panel_text);
+    make_panel(layout_.weapon_list_panel_rect().x, layout_.weapon_list_panel_rect().y, layout_.weapon_list_panel_rect().w, layout_.weapon_list_panel_rect().h, "").render(renderer_, resolve_skin(assets, layout_.weapon_list_panel_skin(), assets.panel_skin), font_, presentation_rect_, panel_text);
+    make_panel(layout_.attachments_panel_rect().x, layout_.attachments_panel_rect().y, layout_.attachments_panel_rect().w, layout_.attachments_panel_rect().h, "").render(renderer_, resolve_skin(assets, layout_.attachments_panel_skin(), assets.panel_skin), font_, presentation_rect_, panel_text);
+    make_panel(stats_panel.x, stats_panel.y, stats_panel.w, stats_panel.h, tr("panel.weapon_stats", "Stats").c_str()).render(renderer_, resolve_skin(assets, layout_.stats_panel_skin(), assets.panel_skin), font_, presentation_rect_, panel_text);
+    make_panel(effects_panel.x, effects_panel.y, effects_panel.w, effects_panel.h, tr("panel.current_effects", "Effects").c_str()).render(renderer_, resolve_skin(assets, layout_.effects_panel_skin(), assets.panel_skin), font_, presentation_rect_, panel_text);
+    make_panel(upgrade_panel.x, upgrade_panel.y, upgrade_panel.w, upgrade_panel.h, tr("panel.upgrade_requirements", "Upgrade Cost").c_str()).render(renderer_, resolve_skin(assets, layout_.upgrade_panel_skin(), assets.panel_skin), font_, presentation_rect_, panel_text);
     render_text_centered(strings_.resolve_token(layout_.weapon_list_title_text()).c_str(), layout_.weapon_list_title_rect(), panel_text, -1.0f);
     render_text_centered(strings_.resolve_token(layout_.attachments_title_text()).c_str(), layout_.attachments_title_rect(), panel_text, -1.0f);
 
@@ -186,12 +307,45 @@ void WorkbenchScreen::render(
     render_attachment_popup(assets, dt, wheel_x, mouse_x, mouse_y, mouse_in_view, mouse_down, mouse_pressed, mouse_released);
     render_attachment_strip(assets, dt, wheel_x, mouse_x, mouse_y, mouse_in_view, mouse_down, mouse_pressed, mouse_released);
 
-    render_text(tr("effects.accuracy_up", "+ Accuracy 10").c_str(), effects_panel.x + 22.0f, effects_panel.y + 64.0f, SDL_Color{116, 188, 84, 255});
-    render_text(tr("effects.reload_up", "+ Reload Speed 15%").c_str(), effects_panel.x + 22.0f, effects_panel.y + 94.0f, SDL_Color{116, 188, 84, 255});
-    render_text(tr("upgrade.metal_parts", "Metal Parts 78 / 15").c_str(), upgrade_panel.x + 22.0f, upgrade_panel.y + 54.0f, SDL_Color{241, 226, 205, 255});
-    render_text(tr("upgrade.polymer_parts", "Polymer Parts 23 / 10").c_str(), upgrade_panel.x + 22.0f, upgrade_panel.y + 88.0f, SDL_Color{241, 226, 205, 255});
-    render_text(tr("upgrade.fabric", "Fabric 12 / 5").c_str(), upgrade_panel.x + 22.0f, upgrade_panel.y + 122.0f, SDL_Color{241, 226, 205, 255});
-    render_text(tr("upgrade.tool_level", "Tool Bench Lv. 2").c_str(), upgrade_panel.x + 22.0f, upgrade_panel.y + 156.0f, SDL_Color{241, 226, 205, 255});
+    ui::Canvas effects_canvas(effects_panel.x, effects_panel.y, effects_panel.w, effects_panel.h);
+    const char* effect_lines[] = {
+        tr("effects.accuracy_up", "+ Accuracy 10").c_str(),
+        tr("effects.reload_up", "+ Reload Speed 15%").c_str(),
+    };
+    for (int i = 0; i < 2; ++i) {
+        std::unique_ptr<ui::TextItem> line(new ui::TextItem());
+        line->set_rect(22.0f, 64.0f + i * 30.0f, effects_panel.w - 44.0f, 22.0f);
+        line->set_font(font_);
+        line->set_text(effect_lines[i]);
+        line->set_color(SDL_Color{116, 188, 84, 255});
+        line->set_fit_to_bounds(false);
+        effects_canvas.add_child(std::move(line));
+    }
+
+    ui::Canvas upgrade_canvas(upgrade_panel.x, upgrade_panel.y, upgrade_panel.w, upgrade_panel.h);
+    const char* upgrade_lines[] = {
+        tr("upgrade.metal_parts", "Metal Parts 78 / 15").c_str(),
+        tr("upgrade.polymer_parts", "Polymer Parts 23 / 10").c_str(),
+        tr("upgrade.fabric", "Fabric 12 / 5").c_str(),
+        tr("upgrade.tool_level", "Tool Bench Lv. 2").c_str(),
+    };
+    for (int i = 0; i < 4; ++i) {
+        std::unique_ptr<ui::TextItem> line(new ui::TextItem());
+        line->set_rect(22.0f, 54.0f + i * 34.0f, upgrade_panel.w - 44.0f, 24.0f);
+        line->set_font(font_);
+        line->set_text(upgrade_lines[i]);
+        line->set_color(SDL_Color{241, 226, 205, 255});
+        line->set_fit_to_bounds(false);
+        upgrade_canvas.add_child(std::move(line));
+    }
+
+    ui::RenderContext panel_context;
+    panel_context.renderer = renderer_;
+    panel_context.presentation_rect = presentation_rect_;
+    panel_context.alpha = 255;
+    effects_canvas.render(panel_context, SDL_FRect{0.0f, 0.0f, static_cast<float>(kUiDesignWidth), static_cast<float>(kUiDesignHeight)});
+    upgrade_canvas.render(panel_context, SDL_FRect{0.0f, 0.0f, static_cast<float>(kUiDesignWidth), static_cast<float>(kUiDesignHeight)});
+    return close_requested;
 }
 
 void WorkbenchScreen::ensure_font(float ui_scale)
@@ -207,17 +361,32 @@ void WorkbenchScreen::ensure_font(float ui_scale)
         TTF_CloseFont(font_);
         font_ = nullptr;
     }
+    if (list_title_font_ != nullptr) {
+        TTF_CloseFont(list_title_font_);
+        list_title_font_ = nullptr;
+    }
+    if (list_subtitle_font_ != nullptr) {
+        TTF_CloseFont(list_subtitle_font_);
+        list_subtitle_font_ = nullptr;
+    }
     font_point_size_ = desired_point_size;
     font_ = load_ui_font(font_point_size_);
+    list_title_font_ = load_ui_font(static_cast<int>(std::round(font_point_size_ * 1.95f)));
+    list_subtitle_font_ = load_ui_font(static_cast<int>(std::round(font_point_size_ * 1.55f)));
 }
 
 void WorkbenchScreen::render_text(const char* text, float x, float y, SDL_Color color) const
 {
-    if (font_ == nullptr || text == nullptr || text[0] == '\0') {
+    render_text_with_font(font_, text, x, y, color);
+}
+
+void WorkbenchScreen::render_text_with_font(TTF_Font* font, const char* text, float x, float y, SDL_Color color) const
+{
+    if (font == nullptr || text == nullptr || text[0] == '\0') {
         return;
     }
 
-    SDL_Surface* surface = TTF_RenderText_Blended(font_, text, 0, color);
+    SDL_Surface* surface = TTF_RenderText_Blended(font, text, 0, color);
     if (surface == nullptr) {
         return;
     }
@@ -228,7 +397,7 @@ void WorkbenchScreen::render_text(const char* text, float x, float y, SDL_Color 
         return;
     }
 
-    SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_NEAREST);
+    SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_LINEAR);
     const SDL_FRect dst{
         to_screen_x(x),
         to_screen_y(y),
@@ -237,6 +406,45 @@ void WorkbenchScreen::render_text(const char* text, float x, float y, SDL_Color 
     };
     SDL_RenderTexture(renderer_, texture, nullptr, &dst);
 
+    SDL_DestroyTexture(texture);
+    SDL_DestroySurface(surface);
+}
+
+void render_text_texture_fit(
+    SDL_Renderer* renderer,
+    TTF_Font* font,
+    const char* text,
+    const SDL_FRect& region,
+    SDL_Color color,
+    float height_scale = 1.0f,
+    float y_offset = 0.0f)
+{
+    if (renderer == nullptr || font == nullptr || text == nullptr || text[0] == '\0' || region.w <= 0.0f || region.h <= 0.0f) {
+        return;
+    }
+
+    SDL_Surface* surface = TTF_RenderText_Blended(font, text, 0, color);
+    if (surface == nullptr) {
+        return;
+    }
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+    if (texture == nullptr) {
+        SDL_DestroySurface(surface);
+        return;
+    }
+
+    SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_LINEAR);
+    const float effective_height = std::max(1.0f, region.h * height_scale);
+    const float scale = std::min(region.w / std::max(1.0f, static_cast<float>(surface->w)), effective_height / std::max(1.0f, static_cast<float>(surface->h)));
+    const float draw_w = std::round(surface->w * scale);
+    const float draw_h = std::round(surface->h * scale);
+    const SDL_FRect dst{
+        region.x,
+        region.y + y_offset,
+        draw_w,
+        draw_h
+    };
+    SDL_RenderTexture(renderer, texture, nullptr, &dst);
     SDL_DestroyTexture(texture);
     SDL_DestroySurface(surface);
 }
@@ -417,34 +625,46 @@ void WorkbenchScreen::render_weapon_list(
             continue;
         }
 
-        char ammo[32];
-        std::snprintf(ammo, sizeof(ammo), "%d/%d", slot.ammo_in_mag, slot.ammo_reserve);
-        const Texture* card_icon = slot.definition->preview_texture.valid()
-            ? &slot.definition->preview_texture
-            : &slot.definition->texture;
-        ui::Card card(row_rect.x, row_rect.y, row_rect.w, row_rect.h);
-        card
-            .set_selected(i == weapon_state.active_slot_index())
-            .set_title(slot.definition->name.c_str())
-            .set_subtitle(slot.definition->full_auto
-                ? tr("weapon.fire_mode.auto", "Auto").c_str()
-                : tr("weapon.fire_mode.semi", "Semi").c_str())
-            .set_meta(ammo)
-            .set_icon(card_icon);
-        card.render(
-            renderer_,
-            assets.weapon_card_style,
-            font_,
-            font_,
-            presentation_rect_,
+        const Texture* card_icon = slot.definition->icon_texture.valid()
+            ? &slot.definition->icon_texture
+            : (slot.definition->preview_texture.valid()
+                ? &slot.definition->preview_texture
+                : &slot.definition->texture);
+        const ControlVisualState state = weapon_row_state(
+            i,
+            weapon_state.active_slot_index(),
+            row_rect,
             mouse_x,
             mouse_y,
             mouse_in_view,
             mouse_down,
-            armed_weapon_index_ == i,
+            armed_weapon_index_);
+        const SDL_FRect row_screen = to_screen_rect(row_rect);
+        assets.weapon_card_style.render(renderer_, row_screen, state, 255);
+
+        const SDL_FRect content = assets.weapon_card_style.content_rect(row_screen);
+        const WeaponRowTemplateLayout& card_template = layout_.weapon_row_template(slot.definition->ui_card_template);
+        const SDL_FRect icon_rect = rect_within(content, card_template.icon);
+        const SDL_FRect title_rect = rect_within(content, card_template.title);
+        const SDL_FRect subtitle_rect = rect_within(content, card_template.subtitle);
+
+        render_texture_fit(renderer_, *card_icon, icon_rect);
+        render_text_texture_fit(
+            renderer_,
+            list_title_font_ != nullptr ? list_title_font_ : font_,
+            slot.definition->name.c_str(),
+            title_rect,
             SDL_Color{241, 226, 205, 255},
-            SDL_Color{201, 182, 150, 255},
-            SDL_Color{168, 150, 124, 255});
+            card_template.title_scale,
+            content.h * card_template.title_y_offset);
+        render_text_texture_fit(
+            renderer_,
+            list_subtitle_font_ != nullptr ? list_subtitle_font_ : font_,
+            weapon_category_label(*slot.definition).c_str(),
+            subtitle_rect,
+            SDL_Color{186, 160, 122, 255},
+            card_template.subtitle_scale,
+            content.h * card_template.subtitle_y_offset);
     }
 
     SDL_SetRenderClipRect(renderer_, nullptr);
@@ -475,10 +695,36 @@ void WorkbenchScreen::render_weapon_stats(const Assets& assets, const WeaponDefi
     std::snprintf(rows[3].value, sizeof(rows[3].value), "%.1f", definition->shake_magnitude);
     std::snprintf(rows[4].value, sizeof(rows[4].value), "%.2f", definition->loudness);
 
+    ui::Canvas stats_canvas(logical_rect.x, logical_rect.y, logical_rect.w, logical_rect.h);
+    for (int i = 0; i < 5; ++i) {
+        const float row_y = 56.0f + i * 74.0f;
+
+        std::unique_ptr<ui::TextItem> label(new ui::TextItem());
+        label->set_rect(28.0f, row_y, logical_rect.w - 120.0f, 20.0f);
+        label->set_font(font_);
+        label->set_text(rows[i].label);
+        label->set_color(SDL_Color{241, 226, 205, 255});
+        label->set_fit_to_bounds(false);
+        stats_canvas.add_child(std::move(label));
+
+        std::unique_ptr<ui::TextItem> value(new ui::TextItem());
+        value->set_rect(logical_rect.w - 96.0f, row_y, 68.0f, 20.0f);
+        value->set_font(font_);
+        value->set_text(rows[i].value);
+        value->set_color(SDL_Color{241, 226, 205, 255});
+        value->set_fit_to_bounds(false);
+        value->set_horizontal_align(ui::HorizontalAlign::Right);
+        stats_canvas.add_child(std::move(value));
+    }
+
+    ui::RenderContext stats_context;
+    stats_context.renderer = renderer_;
+    stats_context.presentation_rect = presentation_rect_;
+    stats_context.alpha = 255;
+    stats_canvas.render(stats_context, SDL_FRect{0.0f, 0.0f, static_cast<float>(kUiDesignWidth), static_cast<float>(kUiDesignHeight)});
+
     for (int i = 0; i < 5; ++i) {
         const float row_y = logical_rect.y + 56.0f + i * 74.0f;
-        render_text(rows[i].label, logical_rect.x + 28.0f, row_y, SDL_Color{241, 226, 205, 255});
-        render_text(rows[i].value, logical_rect.x + logical_rect.w - 82.0f, row_y, SDL_Color{241, 226, 205, 255});
         ui::ProgressBar meter(
             logical_rect.x + 26.0f,
             row_y + 28.0f,
@@ -500,24 +746,56 @@ void WorkbenchScreen::render_weapon_stats(const Assets& assets, const WeaponDefi
 void WorkbenchScreen::render_resource_strip() const
 {
     const SDL_FRect logical_rect = layout_.resource_strip_rect();
-    const SDL_FRect rect = to_screen_rect(logical_rect);
-    SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
-    SDL_SetRenderDrawColor(renderer_, 8, 10, 12, 168);
-    SDL_RenderFillRect(renderer_, &rect);
-    SDL_SetRenderDrawColor(renderer_, 88, 72, 42, 220);
-    SDL_RenderRect(renderer_, &rect);
-    SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_NONE);
+    ui::Canvas strip(logical_rect.x, logical_rect.y, logical_rect.w, logical_rect.h);
+    std::unique_ptr<ui::BoxItem> background(new ui::BoxItem());
+    background->set_rect(0.0f, 0.0f, logical_rect.w, logical_rect.h);
+    background->set_fill_color(SDL_Color{8, 10, 12, 168});
+    background->set_border_color(SDL_Color{88, 72, 42, 220});
+    background->set_fill_enabled(true);
+    background->set_border_enabled(true);
+    background->set_border_width(1.0f);
+    strip.add_child(std::move(background));
 
-    const float x = logical_rect.x;
-    const float y = logical_rect.y;
-    render_text(tr("top.workbench", "Workbench").c_str(), x + 16.0f, y + 18.0f, SDL_Color{241, 226, 205, 255});
-    render_text(tr("top.level", "Lv. 2").c_str(), x + 136.0f, y + 18.0f, SDL_Color{211, 188, 142, 255});
-    render_text(tr("top.metal", "Metal 350").c_str(), x + 268.0f, y + 18.0f, SDL_Color{241, 226, 205, 255});
-    render_text(tr("top.wood", "Wood 126").c_str(), x + 470.0f, y + 18.0f, SDL_Color{241, 226, 205, 255});
-    render_text(tr("top.parts", "Parts 78").c_str(), x + 676.0f, y + 18.0f, SDL_Color{241, 226, 205, 255});
-    render_text(tr("top.fabric", "Fabric 23").c_str(), x + 874.0f, y + 18.0f, SDL_Color{241, 226, 205, 255});
-    render_text(tr("top.gems", "Gems 0").c_str(), x + 1074.0f, y + 18.0f, SDL_Color{241, 226, 205, 255});
-    render_text(tr("top.back", "Esc Back").c_str(), x + logical_rect.w - 230.0f, y + 18.0f, SDL_Color{211, 188, 142, 255});
+    struct StripLabel {
+        float x;
+        float w;
+        const std::string* text;
+        SDL_Color color;
+    };
+    const std::string workbench = tr("top.workbench", "Workbench");
+    const std::string level = tr("top.level", "Lv. 2");
+    const std::string metal = tr("top.metal", "Metal 350");
+    const std::string wood = tr("top.wood", "Wood 126");
+    const std::string parts = tr("top.parts", "Parts 78");
+    const std::string fabric = tr("top.fabric", "Fabric 23");
+    const std::string gems = tr("top.gems", "Gems 0");
+    const std::string back = tr("top.back", "Esc Back");
+    const StripLabel labels[] = {
+        {16.0f, 110.0f, &workbench, SDL_Color{241, 226, 205, 255}},
+        {136.0f, 110.0f, &level, SDL_Color{211, 188, 142, 255}},
+        {268.0f, 170.0f, &metal, SDL_Color{241, 226, 205, 255}},
+        {470.0f, 170.0f, &wood, SDL_Color{241, 226, 205, 255}},
+        {676.0f, 160.0f, &parts, SDL_Color{241, 226, 205, 255}},
+        {874.0f, 150.0f, &fabric, SDL_Color{241, 226, 205, 255}},
+        {1074.0f, 120.0f, &gems, SDL_Color{241, 226, 205, 255}},
+        {logical_rect.w - 230.0f, 180.0f, &back, SDL_Color{211, 188, 142, 255}},
+    };
+    for (size_t i = 0; i < sizeof(labels) / sizeof(labels[0]); ++i) {
+        std::unique_ptr<ui::TextItem> text(new ui::TextItem());
+        text->set_rect(labels[i].x, 8.0f, labels[i].w, logical_rect.h - 16.0f);
+        text->set_font(font_);
+        text->set_text(labels[i].text->c_str());
+        text->set_color(labels[i].color);
+        text->set_fit_to_bounds(false);
+        text->set_vertical_align(ui::VerticalAlign::Middle);
+        strip.add_child(std::move(text));
+    }
+
+    ui::RenderContext context;
+    context.renderer = renderer_;
+    context.presentation_rect = presentation_rect_;
+    context.alpha = 255;
+    strip.render(context, SDL_FRect{0.0f, 0.0f, static_cast<float>(kUiDesignWidth), static_cast<float>(kUiDesignHeight)});
 }
 
 void WorkbenchScreen::render_attachment_strip(
@@ -581,6 +859,7 @@ void WorkbenchScreen::render_attachment_strip(
             const bool hovered = mouse_in_view &&
                 mouse_x >= slot_rect.x && mouse_x <= slot_rect.x + slot_rect.w &&
                 mouse_y >= slot_rect.y && mouse_y <= slot_rect.y + slot_rect.h &&
+                mouse_x >= viewport.x && mouse_x <= viewport.x + viewport.w &&
                 mouse_y >= viewport.y && mouse_y <= viewport.y + viewport.h;
             if (hovered) {
                 armed_attachment_index_ = i;
@@ -599,6 +878,7 @@ void WorkbenchScreen::render_attachment_strip(
         const bool released_inside = mouse_in_view &&
             mouse_x >= armed_rect.x && mouse_x <= armed_rect.x + armed_rect.w &&
             mouse_y >= armed_rect.y && mouse_y <= armed_rect.y + armed_rect.h &&
+            mouse_x >= viewport.x && mouse_x <= viewport.x + viewport.w &&
             mouse_y >= viewport.y && mouse_y <= viewport.y + viewport.h;
         if (released_inside) {
             active_attachment_index_ = (active_attachment_index_ == armed_attachment_index_) ? -1 : armed_attachment_index_;
@@ -753,7 +1033,9 @@ void WorkbenchScreen::render_attachment_popup(
             };
             const bool hovered = mouse_in_view &&
                 mouse_x >= card_rect.x && mouse_x <= card_rect.x + card_rect.w &&
-                mouse_y >= card_rect.y && mouse_y <= card_rect.y + card_rect.h;
+                mouse_y >= card_rect.y && mouse_y <= card_rect.y + card_rect.h &&
+                mouse_x >= viewport.x && mouse_x <= viewport.x + viewport.w &&
+                mouse_y >= viewport.y && mouse_y <= viewport.y + viewport.h;
             if (hovered) {
                 armed_popup_option_index_ = i;
                 break;
@@ -769,7 +1051,9 @@ void WorkbenchScreen::render_attachment_popup(
         };
         const bool hovered = mouse_in_view &&
             mouse_x >= card_rect.x && mouse_x <= card_rect.x + card_rect.w &&
-            mouse_y >= card_rect.y && mouse_y <= card_rect.y + card_rect.h;
+            mouse_y >= card_rect.y && mouse_y <= card_rect.y + card_rect.h &&
+            mouse_x >= viewport.x && mouse_x <= viewport.x + viewport.w &&
+            mouse_y >= viewport.y && mouse_y <= viewport.y + viewport.h;
         if (hovered && !slot.options[armed_popup_option_index_].locked) {
             selected_attachment_option_[active_attachment_index_] = armed_popup_option_index_;
         }
@@ -834,6 +1118,29 @@ void WorkbenchScreen::render_attachment_popup(
 const std::string& WorkbenchScreen::tr(const char* key, const char* fallback) const
 {
     return strings_.get(key, fallback);
+}
+
+const std::string& WorkbenchScreen::weapon_category_label(const WeaponDefinition& definition) const
+{
+    if (definition.ui_card_template == "pistol") {
+        return tr("weapon.category.pistol", "Pistol");
+    }
+    if (definition.ui_card_template == "rifle") {
+        return tr("weapon.category.rifle", "Rifle");
+    }
+    if (definition.ui_card_template == "shotgun") {
+        return tr("weapon.category.shotgun", "Shotgun");
+    }
+    if (definition.ui_card_template == "sniper") {
+        return tr("weapon.category.sniper", "Sniper");
+    }
+    if (definition.ui_card_template == "smg") {
+        return tr("weapon.category.smg", "SMG");
+    }
+    if (definition.type == WeaponType::Grenade) {
+        return tr("weapon.category.launcher", "Launcher");
+    }
+    return tr("weapon.category.unknown", "Weapon");
 }
 
 float WorkbenchScreen::to_screen_x(float logical_x) const

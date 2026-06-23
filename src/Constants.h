@@ -14,6 +14,8 @@ constexpr int kWindowDefaultWidth = 1600;
 constexpr int kWindowDefaultHeight = 900;
 constexpr int kWindowMinWidth = 1280;
 constexpr int kWindowMinHeight = 720;
+constexpr bool kEnableUiLayoutHotReload = true;
+constexpr bool kEnableAimingRigDebug = true;
 constexpr float kWorldWidth = 1072.0f;
 constexpr float kPlayerWidth = 18.0f;
 constexpr float kPlayerHeight = 33.0f;
@@ -104,5 +106,10 @@ constexpr int kWaveBaseConcurrent = 4;
 constexpr int kWaveConcurrentPerWave = 2;
 constexpr float kZombieSpawnIntervalMin = 0.8f;
 constexpr float kZombieSpawnIntervalMax = 2.0f;
+constexpr float kRigUpperArmLength = 8.5f;
+constexpr float kRigForearmLength = 8.5f;
+constexpr float kRigTorsoLength = 9.5f;
+constexpr float kRigNeckLength = 2.5f;
+constexpr float kRigHeadRadius = 4.0f;
 
 } // namespace zg

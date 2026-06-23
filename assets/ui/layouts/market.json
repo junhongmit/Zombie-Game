@@ -1,0 +1,22 @@
+{
+  "rects": {
+    "resource_strip": { "x": 0.205, "y": 0.018, "w": 0.59, "h": 0.058, "skin": "panel_square_bronze" },
+    "merchant_panel": { "x": 0.018, "y": 0.072, "w": 0.205, "h": 0.275, "skin": "panel_square_bronze" },
+    "cart_panel": { "x": 0.018, "y": 0.742, "w": 0.225, "h": 0.215, "skin": "panel_square_bronze" },
+    "timer_panel": { "x": 0.792, "y": 0.804, "w": 0.182, "h": 0.138, "skin": "panel_square_bronze" },
+    "note_panel": { "x": 0.538, "y": 0.804, "w": 0.222, "h": 0.138, "skin": "panel_square_bronze" },
+    "notebook": { "x": 0.25, "y": 0.07, "w": 0.65, "h": 0.75 },
+    "close_button": { "x": 0.878, "y": 0.022, "w": 0.096, "h": 0.05 },
+    "category_button_start": { "x": 0.917, "y": 0.205, "w": 0.055, "h": 0.082 },
+    "page_button_start": { "x": 0.568, "y": 0.742, "w": 0.07, "h": 0.048 },
+    "catalog_item_start": { "x": 0.392, "y": 0.198, "w": 0.218, "h": 0.156 }
+  },
+  "metrics": {
+    "category_button_gap": 0.012,
+    "category_button_count": 6,
+    "page_button_gap": 0.1,
+    "catalog_item_gap_x": 0.268,
+    "catalog_item_gap_y": 0.185,
+    "catalog_item_count": 6
+  }
+}

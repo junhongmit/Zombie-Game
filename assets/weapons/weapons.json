@@ -2,8 +2,10 @@
   "weapons": [
     {
       "name": "Glock",
-      "image_path": "assets/weapons/hold glock.png",
-      "preview_image_path": "assets/weapons/glock.png",
+      "image_path": "assets/weapons/glock/hold.png",
+      "preview_image_path": "assets/weapons/glock/preview.png",
+      "icon_image_path": "assets/weapons/glock/icon.png",
+      "ui_card_template": "pistol",
       "route_x": 4,
       "route_y": 3,
       "type": 101,
@@ -15,12 +17,14 @@
       "full_auto": false,
       "speed_rpm": 600,
       "price": 0,
-      "shoot_sound_path": "music\\sound\\weapons\\Glock\\glock18-2.wav"
+      "shoot_sound_path": "assets/weapons/glock/sounds/glock18-2.wav"
     },
     {
       "name": "Desert Eagle",
-      "image_path": "assets/weapons/hold desert eagle.png",
-      "preview_image_path": "assets/weapons/desert_eagle.png",
+      "image_path": "assets/weapons/desert_eagle/hold.png",
+      "preview_image_path": "assets/weapons/desert_eagle/preview.png",
+      "icon_image_path": "assets/weapons/desert_eagle/icon.png",
+      "ui_card_template": "pistol",
       "route_x": 3,
       "route_y": 2,
       "type": 101,
@@ -32,12 +36,14 @@
       "full_auto": false,
       "speed_rpm": 60,
       "price": 0,
-      "shoot_sound_path": "music\\sound\\weapons\\Desert Eagle\\deagle-2.wav"
+      "shoot_sound_path": "assets/weapons/desert_eagle/sounds/deagle-2.wav"
     },
     {
       "name": "AK47",
-      "image_path": "assets/weapons/hold AK47.png",
-      "preview_image_path": "assets/weapons/ak47.png",
+      "image_path": "assets/weapons/ak47/hold.png",
+      "preview_image_path": "assets/weapons/ak47/preview.png",
+      "icon_image_path": "assets/weapons/ak47/icon.png",
+      "ui_card_template": "rifle",
       "route_x": 2,
       "route_y": 1,
       "type": 101,
@@ -49,12 +55,13 @@
       "full_auto": true,
       "speed_rpm": 600,
       "price": 0,
-      "shoot_sound_path": "music\\sound\\weapons\\AK-47\\1.wav"
+      "shoot_sound_path": "assets/weapons/ak47/sounds/1.wav"
     },
     {
       "name": "Grenade on AK47",
-      "image_path": "assets/weapons/hold AK47-2.png",
-      "preview_image_path": "assets/weapons/m320.png",
+      "image_path": "assets/weapons/ak47_grenade_launcher/hold.png",
+      "preview_image_path": "assets/weapons/ak47_grenade_launcher/hold.png",
+      "ui_card_template": "shotgun",
       "route_x": 2,
       "route_y": 1,
       "type": 102,
@@ -69,8 +76,9 @@
     },
     {
       "name": "AWM",
-      "image_path": "assets/weapons/hold AWM.png",
-      "preview_image_path": "assets/weapons/awm.png",
+      "image_path": "assets/weapons/awm/hold.png",
+      "preview_image_path": "assets/weapons/awm/preview.png",
+      "ui_card_template": "sniper",
       "route_x": 3,
       "route_y": 1,
       "type": 101,
@@ -82,12 +90,14 @@
       "full_auto": false,
       "speed_rpm": 60,
       "price": 0,
-      "shoot_sound_path": "music\\sound\\weapons\\AWM\\awm1.wav"
+      "shoot_sound_path": "assets/weapons/awm/sounds/awm1.wav"
     },
     {
       "name": "AUG",
-      "image_path": "assets/weapons/hold AUG.png",
-      "preview_image_path": "assets/weapons/aug.png",
+      "image_path": "assets/weapons/aug/hold.png",
+      "preview_image_path": "assets/weapons/aug/preview.png",
+      "icon_image_path": "assets/weapons/aug/icon.png",
+      "ui_card_template": "rifle",
       "route_x": 3,
       "route_y": 2,
       "type": 101,
@@ -99,12 +109,13 @@
       "full_auto": true,
       "speed_rpm": 800,
       "price": 0,
-      "shoot_sound_path": "music\\sound\\weapons\\AUG\\aug-1.wav"
+      "shoot_sound_path": "assets/weapons/aug/sounds/aug-1.wav"
     },
     {
       "name": "M249",
-      "image_path": "assets/weapons/hold M249.png",
-      "preview_image_path": "assets/weapons/m249.png",
+      "image_path": "assets/weapons/m249/hold.png",
+      "preview_image_path": "assets/weapons/m249/hold.png",
+      "ui_card_template": "rifle",
       "route_x": 3,
       "route_y": 3,
       "type": 101,
@@ -116,7 +127,7 @@
       "full_auto": true,
       "speed_rpm": 750,
       "price": 0,
-      "shoot_sound_path": "music\\sound\\weapons\\M249\\m249-2.wav"
+      "shoot_sound_path": "assets/weapons/m249/sounds/m249-2.wav"
     }
   ]
 }

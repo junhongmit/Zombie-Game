@@ -18,6 +18,13 @@ panel.available_parts=Available Parts
 
 weapon.fire_mode.auto=Auto
 weapon.fire_mode.semi=Semi
+weapon.category.pistol=Pistol
+weapon.category.rifle=Rifle
+weapon.category.shotgun=Shotgun
+weapon.category.sniper=Sniper
+weapon.category.smg=SMG
+weapon.category.launcher=Launcher
+weapon.category.unknown=Weapon
 
 stat.damage=Damage
 stat.fire_rate=Fire Rate

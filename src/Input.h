@@ -27,6 +27,9 @@ struct InputState {
     bool reload_pressed = false;
     bool grenade_pressed = false;
     bool inventory_pressed = false;
+    bool use_pressed = false;
+    bool drop_pressed = false;
+    bool split_pressed = false;
     int switch_mode = -1;
     int switch_slot = -1;
     int cycle_weapon = 0;
@@ -42,6 +45,9 @@ private:
     bool previous_reload_down_ = false;
     bool previous_grenade_down_ = false;
     bool previous_inventory_down_ = false;
+    bool previous_use_down_ = false;
+    bool previous_drop_down_ = false;
+    bool previous_split_down_ = false;
 };
 
 } // namespace zg

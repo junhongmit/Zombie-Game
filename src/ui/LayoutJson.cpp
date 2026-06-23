@@ -173,6 +173,17 @@ bool parse_named_rect(const std::string& object_text, const char* key, Normalize
     return parse_normalized_rect(rect_object, rect);
 }
 
+void parse_panel_node(const std::string& object_text, const char* key, LayoutPanelNode* node)
+{
+    std::string panel_object;
+    if (node == nullptr || !extract_object_value(object_text, key, &panel_object)) {
+        return;
+    }
+
+    parse_normalized_rect(panel_object, &node->rect);
+    extract_string_value(panel_object, "skin", &node->skin);
+}
+
 void parse_container_node(const std::string& object_text, const char* key, LayoutContainerNode* node)
 {
     std::string container_object;
@@ -180,6 +191,7 @@ void parse_container_node(const std::string& object_text, const char* key, Layou
         return;
     }
     parse_normalized_rect(container_object, &node->rect);
+    extract_string_value(container_object, "skin", &node->skin);
 
     std::string children_object;
     if (!extract_object_value(container_object, "children", &children_object)) {

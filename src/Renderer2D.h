@@ -13,6 +13,7 @@ struct Player;
 class Texture;
 struct WeaponDefinition;
 struct WeaponState;
+struct UpperBodyAimingRigState;
 struct Zombie;
 
 class Renderer2D {
@@ -52,6 +53,7 @@ private:
     void render_bullet(const Bullet& bullet, const Camera& camera);
     void render_weapon(const Texture& weapon, const WeaponDefinition& definition, const Player& player, float alpha, const Camera& camera);
     void render_player(const Texture& hero, const Player& player, float alpha, const Camera& camera);
+    void render_aiming_rig_debug(const UpperBodyAimingRigState& rig, const Camera& camera);
     void render_zombie(const Texture& texture, const Zombie& zombie, const Camera& camera);
     SDL_Renderer* renderer_;
     SDL_Texture* frame_target_ = nullptr;

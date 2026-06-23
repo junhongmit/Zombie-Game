@@ -65,7 +65,7 @@ void SoundSystem::shutdown()
 
 bool SoundSystem::load_defaults()
 {
-    return load_sound(SoundId::GlockShot, "music/sound/weapons/Glock/glock18-2.wav") &&
+    return load_sound(SoundId::GlockShot, "assets/weapons/glock/sounds/glock18-2.wav") &&
         load_sound(SoundId::GrenadeThrow, "music/gre1.wav") &&
         load_sound(SoundId::Explosion1, "music/sound/Explosions/exp1.wav") &&
         load_sound(SoundId::Explosion2, "music/sound/Explosions/exp2.wav") &&

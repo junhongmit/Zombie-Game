@@ -4,6 +4,10 @@ obj/
 .vs/
 .vscode/.browse.VC.db*
 .vscode/ipch/
+bin/
+tmp/
+dev/
+archived/
 *.user
 *.opensdf
 *.sdf

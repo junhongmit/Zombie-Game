@@ -30,21 +30,30 @@ add_executable(zombie_game WIN32
     src/SpriteSheet.cpp
     src/SurfaceMask.cpp
     src/Texture.cpp
+    src/UpperBodyAimingRig.cpp
     src/Weapon.cpp
     src/WeaponRelight.cpp
     src/Zombie.cpp
     src/ZombieDirector.cpp
     src/ui/Button.cpp
+    src/ui/BoxItem.cpp
     src/ui/Card.cpp
     src/ui/ControlStyle.cpp
     src/ui/GameHudLayout.cpp
+    src/ui/IconItem.cpp
     src/ui/InventoryLayout.cpp
     src/ui/InventoryScreen.cpp
+    src/ui/Item.cpp
+    src/ui/LayoutHotReload.cpp
     src/ui/LayoutJson.cpp
     src/ui/ListView.cpp
+    src/ui/MarketLayout.cpp
+    src/ui/MarketScreen.cpp
     src/ui/Panel.cpp
     src/ui/ProgressBar.cpp
     src/ui/Scrollbar.cpp
+    src/ui/TabBar.cpp
+    src/ui/TextItem.cpp
     src/ui/WorkbenchLayout.cpp
     src/ui/WorkbenchScreen.cpp
     src/main.cpp

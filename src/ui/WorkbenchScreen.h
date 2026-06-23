@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ListView.h"
+#include "LayoutHotReload.h"
 #include "ProgressBar.h"
 #include "WorkbenchLayout.h"
 #include "../LocalizationTable.h"
@@ -21,7 +22,7 @@ public:
     explicit WorkbenchScreen(SDL_Renderer* renderer);
     ~WorkbenchScreen();
 
-    void render(
+    bool render(
         const Assets& assets,
         WeaponState& weapon_state,
         const SDL_FRect& presentation_rect,
@@ -37,6 +38,7 @@ public:
 
 private:
     void ensure_font(float ui_scale);
+    void render_text_with_font(TTF_Font* font, const char* text, float x, float y, SDL_Color color) const;
     void render_text(const char* text, float x, float y, SDL_Color color) const;
     void render_text_centered(const char* text, const SDL_FRect& rect, SDL_Color color, float y_offset = 0.0f) const;
     void render_weapon_preview(const Assets& assets, const WeaponDefinition* definition, const SDL_FRect& logical_rect) const;
@@ -65,6 +67,7 @@ private:
         bool mouse_pressed,
         bool mouse_released);
     const std::string& tr(const char* key, const char* fallback) const;
+    const std::string& weapon_category_label(const WeaponDefinition& definition) const;
 
     float to_screen_x(float logical_x) const;
     float to_screen_y(float logical_y) const;
@@ -72,13 +75,17 @@ private:
 
     SDL_Renderer* renderer_;
     TTF_Font* font_ = nullptr;
+    TTF_Font* list_title_font_ = nullptr;
+    TTF_Font* list_subtitle_font_ = nullptr;
     int font_point_size_ = 0;
     SDL_FRect presentation_rect_{};
     WorkbenchLayout layout_{};
+    ui::LayoutHotReload layout_hot_reload_{};
     LocalizationTable strings_{};
     ui::ListView weapon_list_view_;
     ui::ListView attachment_strip_view_;
     ui::ListView attachment_popup_view_;
+    bool close_armed_ = false;
     int armed_weapon_index_ = -1;
     int active_attachment_index_ = -1;
     int armed_attachment_index_ = -1;

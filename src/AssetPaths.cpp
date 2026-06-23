@@ -10,14 +10,13 @@ namespace zg {
 
 namespace {
 
-bool file_exists(const std::string& path)
+bool path_exists(const std::string& path)
 {
-    std::FILE* file = std::fopen(path.c_str(), "rb");
-    if (file == nullptr) {
+    SDL_PathInfo info;
+    if (!SDL_GetPathInfo(path.c_str(), &info)) {
         return false;
     }
-    std::fclose(file);
-    return true;
+    return info.type == SDL_PATHTYPE_FILE || info.type == SDL_PATHTYPE_DIRECTORY;
 }
 
 std::string join_path(const std::string& prefix, const std::string& suffix)
@@ -41,7 +40,7 @@ std::string resolve_asset_path(const char* relative_path)
     }
 
     const std::string relative(relative_path);
-    if (file_exists(relative)) {
+    if (path_exists(relative)) {
         return relative;
     }
 
@@ -50,6 +49,8 @@ std::string resolve_asset_path(const char* relative_path)
     candidates.push_back(join_path("..", relative));
     candidates.push_back(join_path("../..", relative));
     candidates.push_back(join_path("../../..", relative));
+    candidates.push_back(join_path("../../../..", relative));
+    candidates.push_back(join_path("../../../../..", relative));
 
     if (const char* base_path = SDL_GetBasePath()) {
         const std::string base(base_path);
@@ -57,10 +58,12 @@ std::string resolve_asset_path(const char* relative_path)
         candidates.push_back(join_path(join_path(base, ".."), relative));
         candidates.push_back(join_path(join_path(base, "../.."), relative));
         candidates.push_back(join_path(join_path(base, "../../.."), relative));
+        candidates.push_back(join_path(join_path(base, "../../../.."), relative));
+        candidates.push_back(join_path(join_path(base, "../../../../.."), relative));
     }
 
     for (size_t i = 0; i < candidates.size(); ++i) {
-        if (file_exists(candidates[i])) {
+        if (path_exists(candidates[i])) {
             return candidates[i];
         }
     }

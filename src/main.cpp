@@ -17,6 +17,7 @@
 #include "ZombieDirector.h"
 #include "ui/WorkbenchScreen.h"
 #include "ui/InventoryScreen.h"
+#include "ui/MarketScreen.h"
 
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
@@ -35,6 +36,7 @@ enum class GamePhase {
     Title,
     Intro,
     Workbench,
+    Market,
     Inventory,
     Playing
 };
@@ -126,6 +128,7 @@ int main(int, char**)
     zg::HudRenderer hud(renderer);
     zg::WorkbenchScreen workbench(renderer);
     zg::InventoryScreen inventory_screen(renderer);
+    zg::MarketScreen market_screen(renderer);
     zg::SoundSystem sounds;
     if (!sounds.init() || !sounds.load_defaults()) {
         show_startup_error(window, "Failed to initialize or load audio assets.");
@@ -181,6 +184,9 @@ int main(int, char**)
             if (phase == GamePhase::Workbench) {
                 phase = GamePhase::Title;
                 armed_title_action = zg::TitleMenuAction::None;
+            } else if (phase == GamePhase::Market) {
+                phase = GamePhase::Title;
+                armed_title_action = zg::TitleMenuAction::None;
             } else if (phase == GamePhase::Inventory) {
                 phase = GamePhase::Playing;
             } else if (phase == GamePhase::Title) {
@@ -217,12 +223,18 @@ int main(int, char**)
                 running = false;
             } else if (title_action == zg::TitleMenuAction::Loadout) {
                 phase = GamePhase::Workbench;
+            } else if (title_action == zg::TitleMenuAction::Market) {
+                phase = GamePhase::Market;
             } else if (input.confirm_pressed || title_action == zg::TitleMenuAction::Start) {
                 phase = GamePhase::Intro;
                 intro_timer = 0.0f;
                 armed_title_action = zg::TitleMenuAction::None;
             }
         } else if (phase == GamePhase::Workbench) {
+            camera.target_x = zg::kTitleCameraX;
+            camera.x = zg::kTitleCameraX;
+            camera.target_zoom = zg::kTitleCameraZoom;
+        } else if (phase == GamePhase::Market) {
             camera.target_x = zg::kTitleCameraX;
             camera.x = zg::kTitleCameraX;
             camera.target_zoom = zg::kTitleCameraZoom;
@@ -320,7 +332,7 @@ int main(int, char**)
         camera.update(dt);
 
         float player_alpha = 1.0f;
-        if (phase == GamePhase::Title || phase == GamePhase::Workbench) {
+        if (phase == GamePhase::Title || phase == GamePhase::Workbench || phase == GamePhase::Market) {
             player_alpha = 0.0f;
         } else if (phase == GamePhase::Intro) {
             const float t = intro_timer / kIntroDurationSeconds;
@@ -341,7 +353,7 @@ int main(int, char**)
             static_cast<float>(zg::kInternalRenderHeight)
         };
         if (phase == GamePhase::Workbench) {
-            workbench.render(
+            const bool close_workbench = workbench.render(
                 assets,
                 weapon,
                 ui_presentation_rect,
@@ -354,6 +366,27 @@ int main(int, char**)
                 input.fire_down,
                 input.fire_pressed,
                 input.fire_released);
+            if (close_workbench) {
+                phase = GamePhase::Title;
+                armed_title_action = zg::TitleMenuAction::None;
+            }
+        } else if (phase == GamePhase::Market) {
+            const bool close_market = market_screen.render(
+                assets,
+                inventory,
+                weapon_catalog,
+                ui_presentation_rect,
+                dt,
+                input.ui_mouse_x,
+                input.ui_mouse_y,
+                input.ui_mouse_in_view,
+                input.fire_down,
+                input.fire_pressed,
+                input.fire_released);
+            if (close_market) {
+                phase = GamePhase::Title;
+                armed_title_action = zg::TitleMenuAction::None;
+            }
         } else {
             renderer2d.render_scene(
                 assets,
@@ -383,7 +416,25 @@ int main(int, char**)
                     ui_presentation_rect);
             }
             if (phase == GamePhase::Inventory) {
-                inventory_screen.render(assets, inventory, weapon, ui_presentation_rect);
+                const bool close_inventory = inventory_screen.update_and_render(
+                    assets,
+                    inventory,
+                    weapon,
+                    ui_presentation_rect,
+                    dt,
+                    input.ui_mouse_x,
+                    input.ui_mouse_y,
+                    input.ui_mouse_in_view,
+                    input.fire_down,
+                    input.fire_pressed,
+                    input.fire_released,
+                    input.reload_pressed,
+                    input.use_pressed,
+                    input.drop_pressed,
+                    input.split_pressed);
+                if (close_inventory) {
+                    phase = GamePhase::Playing;
+                }
             }
             const float ui_alpha = phase == GamePhase::Title ? 1.0f : (phase == GamePhase::Intro ? 1.0f - (intro_timer / kIntroDurationSeconds) : 0.0f);
             hud.render_title_screen(

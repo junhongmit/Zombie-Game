@@ -33,6 +33,7 @@ struct InventoryItemDefinition {
     std::string subtitle;
     std::string icon_path;
     float unit_weight = 0.0f;
+    int backpack_profile_index = -1;
     Texture icon;
 };
 
@@ -57,6 +58,14 @@ struct BackpackDefinition {
     bool selected = false;
 };
 
+enum class EquipmentSlotType {
+    Primary = 0,
+    Secondary,
+    Melee,
+    Armor,
+    Count
+};
+
 class InventoryState {
 public:
     static constexpr int kBagSlotCount = 24;
@@ -69,6 +78,17 @@ public:
     ToolMode current_mode() const { return current_mode_; }
     int current_mode_index() const { return static_cast<int>(current_mode_); }
     int mode_count() const { return static_cast<int>(ToolMode::Count); }
+    bool sort_bag();
+    bool use_bag_slot(int index);
+    bool drop_bag_slot(int index);
+    bool split_bag_slot(int index);
+    bool select_backpack(int index);
+    bool equip_bag_item_to_slot(int bag_index, int slot_index);
+    bool unequip_slot_to_bag(int slot_index);
+    bool unequip_slot_to_bag_at(int slot_index, int bag_index);
+    bool move_bag_item(int from_index, int to_index);
+    bool equip_backpack_from_bag(int bag_index);
+    bool unequip_backpack_to_bag(int bag_index);
 
     const ResourceStockpile& resources() const { return resources_; }
     const InventoryItemDefinition* item_definition(int index) const;
@@ -78,6 +98,10 @@ public:
     int quick_slot_count() const { return kQuickSlotCount; }
     const InventorySlot* visible_tool_slots() const;
     int visible_tool_slot_count() const { return kQuickSlotCount; }
+    const InventorySlot* equipped_slots() const { return equipped_slots_; }
+    int equipment_slot_count() const { return static_cast<int>(EquipmentSlotType::Count); }
+    const InventorySlot& equipped_backpack_slot() const { return equipped_backpack_slot_; }
+    const BackpackDefinition* equipped_backpack_definition() const;
     const BackpackDefinition* backpack_definitions() const { return backpacks_.empty() ? nullptr : &backpacks_[0]; }
     int backpack_definition_count() const { return static_cast<int>(backpacks_.size()); }
     int bag_used_slots() const;
@@ -90,6 +114,12 @@ private:
     int add_item_definition(SDL_Renderer* renderer, const char* id, const char* name, const char* subtitle, const char* icon_path, float unit_weight);
     void set_bag_slot(int index, int item_index, int quantity, bool locked = false);
     void set_quick_slot(int index, int item_index, int quantity, bool locked = false);
+    void compact_bag();
+    int first_empty_bag_slot() const;
+    bool can_equip_item_to_slot(int item_index, int slot_index) const;
+    int max_stack_for_item(int item_index) const;
+    bool insert_bag_slot(int from_index, int to_index);
+    void refresh_carry_stats();
 
     ResourceStockpile resources_{};
     std::vector<InventoryItemDefinition> item_definitions_;
@@ -99,8 +129,11 @@ private:
     InventorySlot build_slots_[kQuickSlotCount] = {};
     InventorySlot blueprint_slots_[kQuickSlotCount] = {};
     InventorySlot support_slots_[kQuickSlotCount] = {};
+    InventorySlot equipped_slots_[static_cast<int>(EquipmentSlotType::Count)] = {};
+    InventorySlot equipped_backpack_slot_{};
     ToolMode current_mode_ = ToolMode::Combat;
-    int current_bag_capacity_ = 30;
+    int current_bag_capacity_ = 5;
+    float current_max_weight_ = 12.0f;
 };
 
 } // namespace zg

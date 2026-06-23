@@ -11,6 +11,7 @@
 #include "Presentation.h"
 #include "SpriteCatalog.h"
 #include "Texture.h"
+#include "UpperBodyAimingRig.h"
 #include "Weapon.h"
 #include "Zombie.h"
 
@@ -212,6 +213,10 @@ void Renderer2D::render_scene(
     }
     if (show_player && weapon_definition != nullptr) {
         render_weapon(weapon_definition->texture, *weapon_definition, player, player_alpha, camera);
+    }
+    if (show_player && kEnableAimingRigDebug) {
+        UpperBodyAimingRig rig_solver;
+        render_aiming_rig_debug(rig_solver.solve(player, weapon_definition), camera);
     }
 
     for (int i = 0; i < effects.smoke_particle_count(); ++i) {
@@ -455,6 +460,77 @@ void Renderer2D::render_weapon(const Texture& weapon, const WeaponDefinition& de
     SDL_SetTextureAlphaMod(weapon.get(), static_cast<Uint8>(std::round(clamp_float(alpha, 0.0f, 1.0f) * 255.0f)));
     SDL_RenderTextureRotated(renderer_, weapon.get(), &src, &dst, angle_degrees, &pivot, flip);
     SDL_SetTextureAlphaMod(weapon.get(), 255);
+}
+
+void Renderer2D::render_aiming_rig_debug(const UpperBodyAimingRigState& rig, const Camera& camera)
+{
+    if (!rig.valid) {
+        return;
+    }
+
+    const auto to_screen = [this, &camera](SDL_FPoint point) {
+        return SDL_FPoint{
+            std::round(world_to_screen_x(point.x, camera, presentation_rect_)),
+            std::round(world_to_screen_y(point.y, camera, presentation_rect_))
+        };
+    };
+    const auto draw_segment = [this](SDL_FPoint a, SDL_FPoint b, Uint8 r, Uint8 g, Uint8 bl, Uint8 alpha) {
+        SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(renderer_, r, g, bl, alpha);
+        SDL_RenderLine(renderer_, a.x, a.y, b.x, b.y);
+    };
+    const auto draw_marker = [this](SDL_FPoint p, float radius, Uint8 r, Uint8 g, Uint8 bl, Uint8 alpha) {
+        SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(renderer_, r, g, bl, alpha);
+        const SDL_FRect rect{
+            std::round(p.x - radius),
+            std::round(p.y - radius),
+            radius * 2.0f,
+            radius * 2.0f
+        };
+        SDL_RenderFillRect(renderer_, &rect);
+    };
+
+    const SDL_FPoint pelvis = to_screen(rig.pelvis);
+    const SDL_FPoint torso_base = to_screen(rig.torso_base);
+    const SDL_FPoint torso_top = to_screen(rig.torso_top);
+    const SDL_FPoint head = to_screen(rig.head_center);
+    const SDL_FPoint front_shoulder = to_screen(rig.front_shoulder);
+    const SDL_FPoint back_shoulder = to_screen(rig.back_shoulder);
+    const SDL_FPoint front_elbow_hint = to_screen(rig.front_elbow_hint);
+    const SDL_FPoint back_elbow_hint = to_screen(rig.back_elbow_hint);
+    const SDL_FPoint rear_grip = to_screen(rig.rear_grip);
+    const SDL_FPoint front_grip = to_screen(rig.front_grip);
+    const SDL_FPoint muzzle = to_screen(rig.muzzle);
+    const SDL_FPoint front_elbow = to_screen(rig.front_arm.elbow);
+    const SDL_FPoint back_elbow = to_screen(rig.back_arm.elbow);
+
+    draw_segment(pelvis, torso_base, 182, 182, 200, 220);
+    draw_segment(torso_base, torso_top, 220, 220, 235, 220);
+    draw_segment(torso_top, head, 220, 220, 235, 200);
+
+    draw_segment(front_shoulder, front_elbow, 255, 180, 90, 230);
+    draw_segment(front_elbow, rear_grip, 255, 210, 100, 230);
+    draw_segment(back_shoulder, back_elbow, 120, 180, 255, 230);
+    draw_segment(back_elbow, front_grip, 130, 220, 255, 230);
+
+    draw_segment(rear_grip, front_grip, 255, 235, 120, 220);
+    draw_segment(front_grip, muzzle, 255, 110, 110, 220);
+
+    draw_segment(front_shoulder, front_elbow_hint, 130, 90, 40, 120);
+    draw_segment(back_shoulder, back_elbow_hint, 40, 90, 130, 120);
+
+    draw_marker(head, std::max(2.0f, scale_world_length(kRigHeadRadius * 0.55f, camera, presentation_rect_)), 244, 233, 210, 220);
+    draw_marker(front_shoulder, 2.0f, 255, 180, 90, 240);
+    draw_marker(back_shoulder, 2.0f, 120, 180, 255, 240);
+    draw_marker(front_elbow, 1.5f, 255, 180, 90, 200);
+    draw_marker(back_elbow, 1.5f, 120, 180, 255, 200);
+    draw_marker(front_elbow_hint, 1.5f, 130, 90, 40, 160);
+    draw_marker(back_elbow_hint, 1.5f, 40, 90, 130, 160);
+    draw_marker(rear_grip, 2.0f, 255, 230, 120, 255);
+    draw_marker(front_grip, 2.0f, 255, 230, 120, 255);
+    draw_marker(muzzle, 1.5f, 255, 110, 110, 255);
+    SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_NONE);
 }
 
 void Renderer2D::render_bullet(const Bullet& bullet, const Camera& camera)

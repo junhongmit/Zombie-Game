@@ -1,0 +1,41 @@
+top.wood=木材
+top.metal=零件
+top.med=药品
+top.gems=钻石
+
+panel.link_status=黑市无线电
+panel.cart=已购清单
+panel.next_contact=下次联络时间
+panel.rules=交易规则
+
+merchant.alias=黑市商人
+merchant.signal=信号强度：良好
+merchant.trust=信任等级：Lv.2
+
+cart.empty=空
+cart.total=总计
+
+rules.line1=1. 先付款，后发货
+rules.line2=2. 货物通过中继投送
+rules.line3=3. 风险自担，概不退款
+
+catalog.title=黑市军火目录
+catalog.subtitle=Confidential
+
+category.all=全部
+category.pistol=手枪
+category.shotgun=霰弹枪
+category.rifle=步枪
+category.sniper=狙击枪
+category.other=其他
+category.smg=冲锋枪
+
+button.prev=上一页
+button.next=下一页
+button.close_link=关闭无线电
+
+stat.damage=伤害
+stat.fire_rate=射速
+stat.accuracy=精准度
+stat.stability=稳定性
+stat.magazine=弹匣容量

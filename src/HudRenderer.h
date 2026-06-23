@@ -3,6 +3,8 @@
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
 
+#include "ui/LayoutHotReload.h"
+
 namespace zg {
 
 struct Camera;
@@ -20,7 +22,7 @@ enum class TitleMenuAction {
     None,
     Start,
     Loadout,
-    Options,
+    Market,
     Exit
 };
 
@@ -60,12 +62,7 @@ private:
     void ensure_hud_font(float ui_scale);
     void render_text(const char* text, float x, float y);
     void render_text_colored(const char* text, float x, float y, SDL_Color color);
-    void render_text_centered(const char* text, const SDL_FRect& rect, SDL_Color color, float y_offset = 0.0f);
-    void render_ui_text(const char* text, float x, float y, SDL_Color color);
-    void render_ui_text_centered(const char* text, const SDL_FRect& rect, SDL_Color color, float y_offset = 0.0f);
     void render_slot_bar(const WeaponState& weapon, float x, float y);
-    void render_panel_title_value(const char* title, const char* value, const SDL_FRect& rect, SDL_Color title_color, SDL_Color value_color);
-    void render_progress_label_value(const char* label, const char* value, float x, float y, float width, SDL_Color color);
     float to_screen_x(float logical_x) const;
     float to_screen_y(float logical_y) const;
     SDL_FRect to_screen_rect(const SDL_FRect& logical_rect) const;
@@ -78,6 +75,7 @@ private:
     int hud_font_point_size_ = 0;
     SDL_FRect presentation_rect_{};
     GameHudLayout* gameplay_layout_ = nullptr;
+    ui::LayoutHotReload gameplay_layout_hot_reload_{};
     LocalizationTable* gameplay_strings_ = nullptr;
 };
 

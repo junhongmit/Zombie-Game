@@ -5,6 +5,9 @@
 #include "SurfaceMask.h"
 #include "ui/ControlStyle.h"
 
+#include <string>
+#include <unordered_map>
+
 struct SDL_Renderer;
 
 namespace zg {
@@ -18,6 +21,8 @@ struct Assets {
     Texture backcity3;
     Texture building;
     Texture bench;
+    Texture market;
+    Texture notebook;
     Texture hero;
     Texture bullet_icon;
     Texture smoke;
@@ -27,6 +32,7 @@ struct Assets {
     Texture grenade_effect_sheet;
     ControlStyle title_button_skin;
     ControlStyle weapon_card_style;
+    ControlStyle inventory_card_style;
     ControlStyle panel_skin;
     ControlStyle scrollbar_vertical_track_style;
     ControlStyle scrollbar_vertical_fill_style;
@@ -46,8 +52,10 @@ struct Assets {
     bool has_grenade_effect_sheet = false;
     Texture explosions[kExplosionFrameCount];
     SurfaceMask zombie_mask;
+    std::unordered_map<std::string, ControlStyle> ui_skins;
 
     bool load(SDL_Renderer* renderer);
+    const ControlStyle* find_ui_skin(const std::string& name) const;
 };
 
 } // namespace zg

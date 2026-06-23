@@ -16,18 +16,20 @@ bool InventoryLayout::load(const char* asset_path)
 
     std::string rects_object;
     if (extract_object_value(text, "rects", &rects_object)) {
-        parse_named_rect(rects_object, "equipment_panel", &equipment_panel_);
-        parse_named_rect(rects_object, "bag_panel", &bag_panel_);
-        parse_named_rect(rects_object, "resources_panel", &resources_panel_);
-        parse_named_rect(rects_object, "weight_panel", &weight_panel_);
-        parse_named_rect(rects_object, "backpack_panel", &backpack_panel_);
-        parse_named_rect(rects_object, "action_bar", &action_bar_);
+        parse_panel_node(rects_object, "equipment_panel", &equipment_panel_);
+        parse_panel_node(rects_object, "bag_panel", &bag_panel_);
+        parse_panel_node(rects_object, "resources_panel", &resources_panel_);
+        parse_panel_node(rects_object, "weight_panel", &weight_panel_);
+        parse_panel_node(rects_object, "backpack_panel", &backpack_panel_);
+        parse_panel_node(rects_object, "action_bar", &action_bar_);
         parse_named_rect(rects_object, "equipment_entry_start", &equipment_entry_start_);
         parse_named_rect(rects_object, "paperdoll_rect", &paperdoll_rect_);
         parse_named_rect(rects_object, "paperdoll_slot_start", &paperdoll_slot_start_);
         parse_named_rect(rects_object, "bag_slot_start", &bag_slot_start_);
         parse_named_rect(rects_object, "backpack_option_start", &backpack_option_start_);
         parse_named_rect(rects_object, "action_hint_start", &action_hint_start_);
+        parse_named_rect(rects_object, "close_button", &close_button_);
+        parse_named_rect(rects_object, "page_bounds", &page_bounds_);
     }
 
     std::string metrics_object;
@@ -46,15 +48,25 @@ bool InventoryLayout::load(const char* asset_path)
         extract_int_value(metrics_object, "action_hint_count", &action_hint_count_);
     }
 
+    std::string skins_object;
+    if (extract_object_value(text, "skins", &skins_object)) {
+        extract_string_value(skins_object, "equipment_card", &equipment_card_skin_);
+        extract_string_value(skins_object, "bag_slot", &bag_slot_skin_);
+        extract_string_value(skins_object, "backpack_card", &backpack_card_skin_);
+        extract_string_value(skins_object, "action_button", &action_button_skin_);
+        extract_string_value(skins_object, "close_button", &close_button_skin_);
+        extract_string_value(skins_object, "paperdoll_slot", &paperdoll_slot_skin_);
+    }
+
     return true;
 }
 
-SDL_FRect InventoryLayout::equipment_panel_rect() const { return to_logical_rect(equipment_panel_); }
-SDL_FRect InventoryLayout::bag_panel_rect() const { return to_logical_rect(bag_panel_); }
-SDL_FRect InventoryLayout::resources_panel_rect() const { return to_logical_rect(resources_panel_); }
-SDL_FRect InventoryLayout::weight_panel_rect() const { return to_logical_rect(weight_panel_); }
-SDL_FRect InventoryLayout::backpack_panel_rect() const { return to_logical_rect(backpack_panel_); }
-SDL_FRect InventoryLayout::action_bar_rect() const { return to_logical_rect(action_bar_); }
+SDL_FRect InventoryLayout::equipment_panel_rect() const { return to_logical_rect(equipment_panel_.rect); }
+SDL_FRect InventoryLayout::bag_panel_rect() const { return to_logical_rect(bag_panel_.rect); }
+SDL_FRect InventoryLayout::resources_panel_rect() const { return to_logical_rect(resources_panel_.rect); }
+SDL_FRect InventoryLayout::weight_panel_rect() const { return to_logical_rect(weight_panel_.rect); }
+SDL_FRect InventoryLayout::backpack_panel_rect() const { return to_logical_rect(backpack_panel_.rect); }
+SDL_FRect InventoryLayout::action_bar_rect() const { return to_logical_rect(action_bar_.rect); }
 SDL_FRect InventoryLayout::paperdoll_rect() const { return to_logical_rect(paperdoll_rect_); }
 
 SDL_FRect InventoryLayout::equipment_entry_rect(int index) const
@@ -93,6 +105,16 @@ SDL_FRect InventoryLayout::action_hint_rect(int index) const
     SDL_FRect rect = to_logical_rect(action_hint_start_);
     rect.x += index * (rect.w + normalized_x(action_hint_gap_));
     return rect;
+}
+
+SDL_FRect InventoryLayout::close_button_rect() const
+{
+    return to_logical_rect(close_button_);
+}
+
+SDL_FRect InventoryLayout::page_bounds_rect() const
+{
+    return to_logical_rect(page_bounds_);
 }
 
 SDL_FRect InventoryLayout::to_logical_rect(const NormalizedRect& rect) const

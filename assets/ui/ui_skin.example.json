@@ -128,7 +128,12 @@
       },
       "content_padding": { "left": 14, "right": 14, "top": 14, "bottom": 14 },
       "regions": {
-        "title": { "x": 14, "y": 10, "w": 68, "h": 16 }
+        "title": { "x": 14, "y": 10, "w": 68, "h": 16 },
+        "header_row": { "x": 10, "y": 8, "w": 76, "h": 18 },
+        "header_title": { "x": 14, "y": 10, "w": 54, "h": 16 },
+        "header_action": { "x": 68, "y": 8, "w": 18, "h": 18 },
+        "divider_top": { "x": 10, "y": 28, "w": 76, "h": 2 },
+        "body": { "x": 14, "y": 34, "w": 68, "h": 48 }
       },
       "min_size": { "w": 32, "h": 32 }
     },
@@ -458,6 +463,74 @@
         "fill_track": { "x": 8, "y": 5, "w": 48, "h": 8 }
       },
       "min_size": { "w": 24, "h": 12 }
+    },
+    "icon_button_close": {
+      "style_scale": 1.0,
+      "states": {
+        "normal": {
+          "frame": { "x": 128, "y": 324, "w": 24, "h": 24 },
+          "border": {
+            "slice": { "left": 6, "right": 6, "top": 6, "bottom": 6 }
+          },
+          "fill": {
+            "mode": "stretch",
+            "rect": { "x": 134, "y": 330, "w": 12, "h": 12 }
+          }
+        },
+        "hover": {
+          "frame": { "x": 152, "y": 324, "w": 24, "h": 24 },
+          "border": {
+            "slice": { "left": 6, "right": 6, "top": 6, "bottom": 6 }
+          },
+          "fill": {
+            "mode": "stretch",
+            "rect": { "x": 158, "y": 330, "w": 12, "h": 12 }
+          }
+        },
+        "pressed": {
+          "frame": { "x": 176, "y": 324, "w": 24, "h": 24 },
+          "border": {
+            "slice": { "left": 6, "right": 6, "top": 6, "bottom": 6 }
+          },
+          "fill": {
+            "mode": "stretch",
+            "rect": { "x": 182, "y": 330, "w": 12, "h": 12 }
+          }
+        },
+        "disabled": {
+          "frame": { "x": 200, "y": 324, "w": 24, "h": 24 },
+          "border": {
+            "slice": { "left": 6, "right": 6, "top": 6, "bottom": 6 }
+          },
+          "fill": {
+            "mode": "stretch",
+            "rect": { "x": 206, "y": 330, "w": 12, "h": 12 }
+          }
+        }
+      },
+      "content_padding": { "left": 4, "right": 4, "top": 4, "bottom": 4 },
+      "regions": {
+        "icon": { "x": 4, "y": 4, "w": 16, "h": 16 }
+      },
+      "min_size": { "w": 18, "h": 18 },
+      "max_size": { "w": 32, "h": 32 }
+    },
+    "divider_horizontal_bronze": {
+      "style_scale": 1.0,
+      "states": {
+        "normal": {
+          "frame": { "x": 224, "y": 324, "w": 48, "h": 4 },
+          "border": {
+            "slice": { "left": 2, "right": 2, "top": 1, "bottom": 1 }
+          },
+          "fill": {
+            "mode": "stretch",
+            "rect": { "x": 226, "y": 325, "w": 44, "h": 2 }
+          }
+        }
+      },
+      "content_padding": { "left": 0, "right": 0, "top": 0, "bottom": 0 },
+      "min_size": { "w": 8, "h": 2 }
     }
   }
 }

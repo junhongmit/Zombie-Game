@@ -1,8 +1,13 @@
 #include "InventoryState.h"
 
+#include "AssetPaths.h"
+
+#include <SDL3/SDL_filesystem.h>
+
 #include "Weapon.h"
 
 #include <algorithm>
+#include <string>
 
 namespace zg {
 
@@ -15,6 +20,16 @@ InventorySlot make_slot(int item_index, int quantity, bool locked)
     slot.quantity = quantity;
     slot.locked = locked;
     return slot;
+}
+
+bool asset_file_exists(const std::string& path)
+{
+    if (path.empty()) {
+        return false;
+    }
+    SDL_PathInfo info;
+    const std::string resolved = resolve_asset_path(path.c_str());
+    return SDL_GetPathInfo(resolved.c_str(), &info) && info.type == SDL_PATHTYPE_FILE;
 }
 
 } // namespace
@@ -49,7 +64,9 @@ bool InventoryState::load_demo(SDL_Renderer* renderer)
     const int fuel = add_item_definition(renderer, "fuel", "Fuel Can", "Fuel", "assets/ui/icons/fuel.png", 4.0f);
     const int manual = add_item_definition(renderer, "manual", "Field Guide", "Document", "assets/ui/icons/manual.png", 0.7f);
     const int radio = add_item_definition(renderer, "radio", "Hand Radio", "Utility", "assets/ui/icons/radio.png", 0.5f);
-    const int backpack = add_item_definition(renderer, "pack", "Backpack", "Gear", "assets/ui/icons/backpack.png", 1.2f);
+    const int field_pack = add_item_definition(renderer, "field_pack", "Field Pack", "Backpack", "assets/ui/icons/backpack.png", 1.2f);
+    const int climber_pack = add_item_definition(renderer, "climber_pack", "Climber Pack", "Backpack", "assets/ui/icons/backpack.png", 1.6f);
+    const int military_pack = add_item_definition(renderer, "military_pack", "Military Pack", "Backpack", "assets/ui/icons/backpack.png", 2.0f);
     const int bottle = add_item_definition(renderer, "bottle", "Molotov", "Utility", "assets/ui/icons/bottle.png", 0.9f);
     const int hammer = add_item_definition(renderer, "hammer", "Hammer", "Build", "assets/ui/icons/hammer.png", 1.0f);
     const int planks = add_item_definition(renderer, "planks", "Boards", "Build", "assets/ui/icons/planks.png", 2.0f);
@@ -57,6 +74,8 @@ bool InventoryState::load_demo(SDL_Renderer* renderer)
     const int trap = add_item_definition(renderer, "trap", "Spike Trap", "Blueprint", "assets/ui/icons/trap.png", 0.0f);
     const int flare = add_item_definition(renderer, "flare", "Flare", "Support", "assets/ui/icons/flare.png", 0.3f);
     const int toolkit = add_item_definition(renderer, "toolkit", "Toolkit", "Support", "assets/ui/icons/toolkit.png", 2.5f);
+    const int bat = add_item_definition(renderer, "bat", "Baseball Bat", "Melee", "", 1.6f);
+    const int jacket = add_item_definition(renderer, "jacket", "Leather Jacket", "Armor", "", 3.4f);
 
     set_bag_slot(0, medkit, 3);
     set_bag_slot(1, bandage, 2);
@@ -76,8 +95,18 @@ bool InventoryState::load_demo(SDL_Renderer* renderer)
     set_bag_slot(15, fuel, 1);
     set_bag_slot(16, manual, 1);
     set_bag_slot(17, radio, 1);
+    set_bag_slot(18, bat, 1);
+    set_bag_slot(19, jacket, 1);
 
-    set_quick_slot(2, backpack, 1);
+    item_definitions_[field_pack].backpack_profile_index = 0;
+    item_definitions_[climber_pack].backpack_profile_index = 1;
+    item_definitions_[military_pack].backpack_profile_index = 2;
+
+    set_bag_slot(20, field_pack, 1);
+    set_bag_slot(21, climber_pack, 1);
+    set_bag_slot(22, military_pack, 1);
+
+    set_quick_slot(2, field_pack, 1);
     set_quick_slot(3, medkit, 3);
     set_quick_slot(4, wrench, 1);
     set_quick_slot(5, manual, 2);
@@ -119,7 +148,6 @@ bool InventoryState::load_demo(SDL_Renderer* renderer)
     bag.name = "Field Pack";
     bag.capacity_kg = 40.0f;
     bag.mobility = "Normal";
-    bag.selected = true;
     backpacks_.push_back(bag);
 
     bag = BackpackDefinition{};
@@ -146,7 +174,7 @@ bool InventoryState::load_demo(SDL_Renderer* renderer)
     bag.mobility = "Very Slow";
     backpacks_.push_back(bag);
 
-    current_bag_capacity_ = 30;
+    refresh_carry_stats();
     current_mode_ = ToolMode::Combat;
     return true;
 }
@@ -165,7 +193,9 @@ void InventoryState::sync_from_weapon_state(const WeaponState& weapon_state)
                 weapon_slots[i].definition->name.c_str(),
                 weapon_slots[i].definition->name.c_str(),
                 weapon_slots[i].definition->full_auto ? "Auto" : "Semi",
-                weapon_slots[i].definition->preview_image_path.c_str(),
+                weapon_slots[i].definition->icon_image_path.empty()
+                    ? weapon_slots[i].definition->preview_image_path.c_str()
+                    : weapon_slots[i].definition->icon_image_path.c_str(),
                 3.0f);
             quick_slots_[i].item_index = item_index;
             quick_slots_[i].quantity = weapon_slots[i].ammo_in_mag;
@@ -211,6 +241,299 @@ const InventorySlot* InventoryState::visible_tool_slots() const
     }
 }
 
+bool InventoryState::sort_bag()
+{
+    std::vector<InventorySlot> filled;
+    filled.reserve(kBagSlotCount);
+    for (int i = 0; i < kBagSlotCount; ++i) {
+        if (bag_slots_[i].item_index >= 0 && !bag_slots_[i].locked) {
+            filled.push_back(bag_slots_[i]);
+        }
+    }
+
+    std::sort(filled.begin(), filled.end(), [this](const InventorySlot& a, const InventorySlot& b) {
+        const InventoryItemDefinition* item_a = item_definition(a.item_index);
+        const InventoryItemDefinition* item_b = item_definition(b.item_index);
+        const std::string name_a = item_a != nullptr ? item_a->name : "";
+        const std::string name_b = item_b != nullptr ? item_b->name : "";
+        if (name_a == name_b) {
+            return a.quantity > b.quantity;
+        }
+        return name_a < name_b;
+    });
+
+    int write_index = 0;
+    for (size_t i = 0; i < filled.size(); ++i) {
+        bag_slots_[write_index++] = filled[i];
+    }
+    while (write_index < kBagSlotCount) {
+        bag_slots_[write_index++] = InventorySlot{};
+    }
+    return true;
+}
+
+bool InventoryState::use_bag_slot(int index)
+{
+    if (index < 0 || index >= kBagSlotCount) {
+        return false;
+    }
+    InventorySlot& slot = bag_slots_[index];
+    if (slot.item_index < 0 || slot.locked) {
+        return false;
+    }
+
+    const InventoryItemDefinition* item = item_definition(slot.item_index);
+    if (item == nullptr) {
+        return false;
+    }
+
+    bool consumed = false;
+    if (item->id == "medkit" || item->id == "bandage" || item->id == "pills" || item->id == "syringe" ||
+        item->id == "beans" || item->id == "water" || item->id == "snack" || item->id == "flare" || item->id == "bottle") {
+        consumed = true;
+    }
+
+    if (consumed && slot.quantity > 0) {
+        --slot.quantity;
+        if (slot.quantity <= 0) {
+            slot = InventorySlot{};
+        }
+        compact_bag();
+    }
+    return true;
+}
+
+bool InventoryState::drop_bag_slot(int index)
+{
+    if (index < 0 || index >= kBagSlotCount) {
+        return false;
+    }
+    InventorySlot& slot = bag_slots_[index];
+    if (slot.item_index < 0 || slot.locked) {
+        return false;
+    }
+    if (slot.quantity > 1) {
+        --slot.quantity;
+    } else {
+        slot = InventorySlot{};
+        compact_bag();
+    }
+    return true;
+}
+
+bool InventoryState::split_bag_slot(int index)
+{
+    if (index < 0 || index >= kBagSlotCount) {
+        return false;
+    }
+    InventorySlot& slot = bag_slots_[index];
+    if (slot.item_index < 0 || slot.locked || slot.quantity < 2) {
+        return false;
+    }
+
+    int empty_index = -1;
+    for (int i = 0; i < kBagSlotCount; ++i) {
+        if (bag_slots_[i].item_index < 0) {
+            empty_index = i;
+            break;
+        }
+    }
+    if (empty_index < 0) {
+        return false;
+    }
+
+    const int moved = slot.quantity / 2;
+    slot.quantity -= moved;
+    bag_slots_[empty_index] = make_slot(slot.item_index, moved, false);
+    return true;
+}
+
+bool InventoryState::select_backpack(int index)
+{
+    if (index < 0 || index >= static_cast<int>(backpacks_.size())) {
+        return false;
+    }
+    for (size_t i = 0; i < backpacks_.size(); ++i) {
+        backpacks_[i].selected = false;
+    }
+    backpacks_[index].selected = true;
+    return true;
+}
+
+bool InventoryState::equip_bag_item_to_slot(int bag_index, int slot_index)
+{
+    if (bag_index < 0 || bag_index >= kBagSlotCount) {
+        return false;
+    }
+    if (slot_index < 0 || slot_index >= equipment_slot_count()) {
+        return false;
+    }
+
+    InventorySlot& bag_slot = bag_slots_[bag_index];
+    if (bag_slot.item_index < 0 || bag_slot.locked || !can_equip_item_to_slot(bag_slot.item_index, slot_index)) {
+        return false;
+    }
+
+    InventorySlot previous_equipped = equipped_slots_[slot_index];
+    InventorySlot equipped_item = make_slot(bag_slot.item_index, 1, false);
+    equipped_slots_[slot_index] = equipped_item;
+
+    if (bag_slot.quantity > 1) {
+        --bag_slot.quantity;
+    } else {
+        bag_slot = InventorySlot{};
+    }
+
+    if (previous_equipped.item_index >= 0) {
+        const int return_index = bag_slot.item_index < 0 ? bag_index : first_empty_bag_slot();
+        if (return_index >= 0) {
+            bag_slots_[return_index] = previous_equipped;
+        }
+    }
+
+    compact_bag();
+    return true;
+}
+
+bool InventoryState::unequip_slot_to_bag(int slot_index)
+{
+    if (slot_index < 0 || slot_index >= equipment_slot_count()) {
+        return false;
+    }
+
+    InventorySlot& equipped = equipped_slots_[slot_index];
+    if (equipped.item_index < 0) {
+        return false;
+    }
+
+    const int empty_index = first_empty_bag_slot();
+    if (empty_index < 0) {
+        return false;
+    }
+
+    bag_slots_[empty_index] = equipped;
+    equipped = InventorySlot{};
+    compact_bag();
+    return true;
+}
+
+bool InventoryState::unequip_slot_to_bag_at(int slot_index, int bag_index)
+{
+    if (slot_index < 0 || slot_index >= equipment_slot_count()) {
+        return false;
+    }
+    if (bag_index < 0 || bag_index >= kBagSlotCount) {
+        return false;
+    }
+
+    InventorySlot& equipped = equipped_slots_[slot_index];
+    if (equipped.item_index < 0) {
+        return false;
+    }
+
+    if (bag_slots_[bag_index].item_index < 0) {
+        bag_slots_[bag_index] = equipped;
+        equipped = InventorySlot{};
+        return true;
+    }
+
+    const int empty_index = first_empty_bag_slot();
+    if (empty_index < 0) {
+        return false;
+    }
+
+    bag_slots_[empty_index] = bag_slots_[bag_index];
+    bag_slots_[bag_index] = equipped;
+    equipped = InventorySlot{};
+    return true;
+}
+
+bool InventoryState::move_bag_item(int from_index, int to_index)
+{
+    if (from_index < 0 || from_index >= kBagSlotCount || to_index < 0 || to_index >= kBagSlotCount || from_index == to_index) {
+        return false;
+    }
+
+    InventorySlot& from = bag_slots_[from_index];
+    InventorySlot& to = bag_slots_[to_index];
+    if (from.item_index < 0 || from.locked) {
+        return false;
+    }
+
+    if (to.item_index >= 0 && to.item_index == from.item_index && !to.locked) {
+        const int max_stack = max_stack_for_item(from.item_index);
+        if (max_stack > 1 && to.quantity < max_stack) {
+            const int transferable = std::min(from.quantity, max_stack - to.quantity);
+            to.quantity += transferable;
+            from.quantity -= transferable;
+            if (from.quantity <= 0) {
+                from = InventorySlot{};
+                compact_bag();
+            }
+            return transferable > 0;
+        }
+    }
+
+    return insert_bag_slot(from_index, to_index);
+}
+
+bool InventoryState::equip_backpack_from_bag(int bag_index)
+{
+    if (bag_index < 0 || bag_index >= kBagSlotCount) {
+        return false;
+    }
+
+    InventorySlot& bag_slot = bag_slots_[bag_index];
+    const InventoryItemDefinition* item = item_definition(bag_slot.item_index);
+    if (item == nullptr || item->backpack_profile_index < 0 || bag_slot.locked) {
+        return false;
+    }
+
+    InventorySlot previous = equipped_backpack_slot_;
+    equipped_backpack_slot_ = make_slot(bag_slot.item_index, 1, false);
+    if (bag_slot.quantity > 1) {
+        --bag_slot.quantity;
+    } else {
+        bag_slot = InventorySlot{};
+    }
+
+    if (previous.item_index >= 0) {
+        const int empty_index = bag_slot.item_index < 0 ? bag_index : first_empty_bag_slot();
+        if (empty_index >= 0) {
+            bag_slots_[empty_index] = previous;
+        }
+    }
+
+    refresh_carry_stats();
+    compact_bag();
+    return true;
+}
+
+bool InventoryState::unequip_backpack_to_bag(int bag_index)
+{
+    if (bag_index < 0 || bag_index >= kBagSlotCount) {
+        return false;
+    }
+    if (equipped_backpack_slot_.item_index < 0) {
+        return false;
+    }
+
+    if (bag_slots_[bag_index].item_index < 0) {
+        bag_slots_[bag_index] = equipped_backpack_slot_;
+    } else {
+        const int empty_index = first_empty_bag_slot();
+        if (empty_index < 0) {
+            return false;
+        }
+        bag_slots_[empty_index] = bag_slots_[bag_index];
+        bag_slots_[bag_index] = equipped_backpack_slot_;
+    }
+
+    equipped_backpack_slot_ = InventorySlot{};
+    refresh_carry_stats();
+    return true;
+}
+
 int InventoryState::bag_used_slots() const
 {
     int count = 0;
@@ -237,15 +560,7 @@ float InventoryState::current_weight() const
 
 float InventoryState::max_weight() const
 {
-    if (backpacks_.empty()) {
-        return 40.0f;
-    }
-    for (size_t i = 0; i < backpacks_.size(); ++i) {
-        if (backpacks_[i].selected) {
-            return backpacks_[i].capacity_kg;
-        }
-    }
-    return backpacks_[0].capacity_kg;
+    return current_max_weight_;
 }
 
 float InventoryState::remaining_weight() const
@@ -267,7 +582,7 @@ int InventoryState::add_item_definition(SDL_Renderer* renderer, const char* id, 
     definition.subtitle = subtitle != nullptr ? subtitle : "";
     definition.icon_path = icon_path != nullptr ? icon_path : "";
     definition.unit_weight = unit_weight;
-    if (renderer != nullptr && !definition.icon_path.empty()) {
+    if (renderer != nullptr && !definition.icon_path.empty() && asset_file_exists(definition.icon_path)) {
         definition.icon.load(renderer, definition.icon_path.c_str(), true);
     }
 
@@ -293,6 +608,127 @@ void InventoryState::set_quick_slot(int index, int item_index, int quantity, boo
     quick_slots_[index].item_index = item_index;
     quick_slots_[index].quantity = quantity;
     quick_slots_[index].locked = locked;
+}
+
+void InventoryState::compact_bag()
+{
+    int write_index = 0;
+    for (int i = 0; i < kBagSlotCount; ++i) {
+        if (bag_slots_[i].item_index >= 0) {
+            if (write_index != i) {
+                bag_slots_[write_index] = bag_slots_[i];
+                bag_slots_[i] = InventorySlot{};
+            }
+            ++write_index;
+        }
+    }
+    while (write_index < kBagSlotCount) {
+        bag_slots_[write_index++] = InventorySlot{};
+    }
+}
+
+int InventoryState::first_empty_bag_slot() const
+{
+    for (int i = 0; i < kBagSlotCount; ++i) {
+        if (bag_slots_[i].item_index < 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+bool InventoryState::can_equip_item_to_slot(int item_index, int slot_index) const
+{
+    const InventoryItemDefinition* item = item_definition(item_index);
+    if (item == nullptr) {
+        return false;
+    }
+
+    switch (static_cast<EquipmentSlotType>(slot_index)) {
+    case EquipmentSlotType::Melee:
+        return item->subtitle == "Melee" || item->id == "bat";
+    case EquipmentSlotType::Armor:
+        return item->subtitle == "Armor" || item->id == "jacket";
+    case EquipmentSlotType::Primary:
+    case EquipmentSlotType::Secondary:
+    case EquipmentSlotType::Count:
+    default:
+        return false;
+    }
+}
+
+int InventoryState::max_stack_for_item(int item_index) const
+{
+    const InventoryItemDefinition* item = item_definition(item_index);
+    if (item == nullptr) {
+        return 1;
+    }
+
+    if (item->id == "ammo_box" || item->id == "rifle_rounds") {
+        return 999;
+    }
+    if (item->subtitle == "Medical" || item->subtitle == "Consumable" || item->subtitle == "Food" ||
+        item->subtitle == "Drink" || item->subtitle == "Fuel" || item->subtitle == "Build" ||
+        item->subtitle == "Support" || item->subtitle == "Parts") {
+        return 99;
+    }
+    return 1;
+}
+
+bool InventoryState::insert_bag_slot(int from_index, int to_index)
+{
+    if (from_index < 0 || from_index >= kBagSlotCount || to_index < 0 || to_index >= kBagSlotCount || from_index == to_index) {
+        return false;
+    }
+
+    InventorySlot moving = bag_slots_[from_index];
+    if (moving.item_index < 0 || moving.locked) {
+        return false;
+    }
+
+    if (from_index < to_index) {
+        for (int i = from_index; i < to_index; ++i) {
+            bag_slots_[i] = bag_slots_[i + 1];
+        }
+    } else {
+        for (int i = from_index; i > to_index; --i) {
+            bag_slots_[i] = bag_slots_[i - 1];
+        }
+    }
+    bag_slots_[to_index] = moving;
+    return true;
+}
+
+const BackpackDefinition* InventoryState::equipped_backpack_definition() const
+{
+    const InventoryItemDefinition* item = item_definition(equipped_backpack_slot_.item_index);
+    if (item == nullptr || item->backpack_profile_index < 0 || item->backpack_profile_index >= static_cast<int>(backpacks_.size())) {
+        return nullptr;
+    }
+    return &backpacks_[static_cast<size_t>(item->backpack_profile_index)];
+}
+
+void InventoryState::refresh_carry_stats()
+{
+    current_bag_capacity_ = 5;
+    current_max_weight_ = 12.0f;
+    for (size_t i = 0; i < backpacks_.size(); ++i) {
+        backpacks_[i].selected = false;
+    }
+
+    const BackpackDefinition* equipped = equipped_backpack_definition();
+    if (equipped == nullptr) {
+        return;
+    }
+
+    const InventoryItemDefinition* item = item_definition(equipped_backpack_slot_.item_index);
+    if (item == nullptr || item->backpack_profile_index < 0 || item->backpack_profile_index >= static_cast<int>(backpacks_.size())) {
+        return;
+    }
+
+    backpacks_[static_cast<size_t>(item->backpack_profile_index)].selected = true;
+    current_bag_capacity_ = 5 + static_cast<int>(equipped->capacity_kg / 4.0f);
+    current_max_weight_ = equipped->capacity_kg;
 }
 
 } // namespace zg

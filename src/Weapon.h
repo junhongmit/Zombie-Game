@@ -20,6 +20,8 @@ struct WeaponDefinition {
     std::string name;
     std::string image_path;
     std::string preview_image_path;
+    std::string icon_image_path;
+    std::string ui_card_template = "default";
     std::string shoot_sound_path;
     int route_x = 4;
     int route_y = 3;
@@ -38,6 +40,7 @@ struct WeaponDefinition {
     float loudness = 0.85f;
     Texture texture;
     Texture preview_texture;
+    Texture icon_texture;
     Texture workbench_lit_texture;
     Texture workbench_shadow_texture;
     WorkbenchShadowPlacement workbench_shadow_placement;

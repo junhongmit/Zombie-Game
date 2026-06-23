@@ -11,13 +11,17 @@
 #include "Texture.h"
 #include "Weapon.h"
 #include "ui/Button.h"
+#include "ui/BoxItem.h"
+#include "ui/Canvas.h"
 #include "ui/ControlStyle.h"
 #include "ui/GameHudLayout.h"
 #include "ui/Panel.h"
 #include "ui/ProgressBar.h"
+#include "ui/TextItem.h"
 
 #include <cmath>
 #include <cstdio>
+#include <memory>
 #include <string>
 
 namespace zg {
@@ -127,7 +131,7 @@ TitleButtonSpec title_button_spec(int index)
     static const TitleButtonSpec kButtons[] = {
         {"Start Game", TitleMenuAction::Start, true},
         {"Loadout", TitleMenuAction::Loadout, true},
-        {"Options", TitleMenuAction::Options, false},
+        {"Black Market", TitleMenuAction::Market, true},
         {"Exit", TitleMenuAction::Exit, true},
     };
     return kButtons[index];
@@ -145,7 +149,10 @@ ui::Button title_button(int index)
 
 ui::Button hud_mode_button(const char* label, float x, float y, float w, float h, bool active)
 {
-    return ui::Button(label, x, y, w, h, true).set_enabled(true);
+    (void)active;
+    ui::Button button(label, x, y, w, h, true);
+    button.set_enabled(true);
+    return button;
 }
 
 } // namespace
@@ -154,9 +161,13 @@ HudRenderer::HudRenderer(SDL_Renderer* renderer)
     : renderer_(renderer)
 {
     gameplay_layout_ = new GameHudLayout();
+    gameplay_layout_hot_reload_.set_path("assets/ui/layouts/game_hud.json");
     gameplay_layout_->load("assets/ui/layouts/game_hud.json");
+    gameplay_layout_hot_reload_.mark_loaded();
     gameplay_strings_ = new LocalizationTable();
-    gameplay_strings_->load("assets/localization/us-en/game_hud.loc");
+    if (!gameplay_strings_->load("assets/localization/zh-cn/game_hud.loc")) {
+        gameplay_strings_->load("assets/localization/us-en/game_hud.loc");
+    }
     hud_font_point_size_ = static_cast<int>(kHudFontPointSize);
     hud_font_ = load_hud_font(hud_font_point_size_);
 }
@@ -216,25 +227,51 @@ void HudRenderer::render_weapon_status(
 
 void HudRenderer::render_top_bar(const WeaponState& weapon, int wave, int alive_count, const SDL_FRect& presentation_rect)
 {
+    if (kEnableUiLayoutHotReload && gameplay_layout_hot_reload_.poll_changed()) {
+        gameplay_layout_->load("assets/ui/layouts/game_hud.json");
+    }
     presentation_rect_ = presentation_rect;
     ensure_hud_font(ui_presentation_scale(presentation_rect_));
-    SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
-
-    const SDL_FRect panel = ui_to_screen_rect(to_ui_rect(UiNormalizedRect{0.012f, 0.014f, 0.235f, 0.055f}));
-    SDL_SetRenderDrawColor(renderer_, 8, 12, 18, 180);
-    SDL_RenderFillRect(renderer_, &panel);
-    SDL_SetRenderDrawColor(renderer_, 78, 84, 96, 220);
-    SDL_RenderRect(renderer_, &panel);
 
     char wave_text[32];
     std::snprintf(wave_text, sizeof(wave_text), "Wave %d", wave);
     char alive_text[32];
     std::snprintf(alive_text, sizeof(alive_text), "Alive %d", alive_count);
-    render_ui_text(wave_text, 30.0f, 21.0f, SDL_Color{255, 255, 255, 255});
-    render_ui_text(alive_text, 30.0f, 47.0f, SDL_Color{255, 255, 255, 255});
-    render_slot_bar(weapon, 160.0f, 23.0f);
 
-    SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_NONE);
+    const SDL_FRect logical_panel = to_ui_rect(UiNormalizedRect{0.012f, 0.014f, 0.235f, 0.055f});
+    ui::Canvas top_bar(logical_panel.x, logical_panel.y, logical_panel.w, logical_panel.h);
+
+    std::unique_ptr<ui::BoxItem> background(new ui::BoxItem());
+    background->set_rect(0.0f, 0.0f, logical_panel.w, logical_panel.h);
+    background->set_fill_color(SDL_Color{8, 12, 18, 180});
+    background->set_border_color(SDL_Color{78, 84, 96, 220});
+    background->set_fill_enabled(true);
+    background->set_border_enabled(true);
+    top_bar.add_child(std::move(background));
+
+    std::unique_ptr<ui::TextItem> wave_label(new ui::TextItem());
+    wave_label->set_rect(18.0f, 8.0f, 120.0f, 20.0f);
+    wave_label->set_font(hud_font_);
+    wave_label->set_text(wave_text);
+    wave_label->set_color(SDL_Color{255, 255, 255, 255});
+    wave_label->set_fit_to_bounds(false);
+    top_bar.add_child(std::move(wave_label));
+
+    std::unique_ptr<ui::TextItem> alive_label(new ui::TextItem());
+    alive_label->set_rect(18.0f, 34.0f, 120.0f, 20.0f);
+    alive_label->set_font(hud_font_);
+    alive_label->set_text(alive_text);
+    alive_label->set_color(SDL_Color{255, 255, 255, 255});
+    alive_label->set_fit_to_bounds(false);
+    top_bar.add_child(std::move(alive_label));
+
+    ui::RenderContext context;
+    context.renderer = renderer_;
+    context.presentation_rect = presentation_rect_;
+    context.alpha = 255;
+    top_bar.render(context, SDL_FRect{0.0f, 0.0f, static_cast<float>(kUiDesignWidth), static_cast<float>(kUiDesignHeight)});
+
+    render_slot_bar(weapon, 160.0f, 23.0f);
 }
 
 void HudRenderer::render_title_screen(
@@ -260,8 +297,30 @@ void HudRenderer::render_title_screen(
         const SDL_FRect banner_logical = title_banner_rect();
         const SDL_FRect banner = ui_to_screen_rect(banner_logical);
         button_skin.render(renderer_, banner, ControlVisualState::Normal, alpha);
-        render_ui_text_centered("Zombie Game", banner_logical, SDL_Color{249, 235, 208, alpha}, -8.0f);
-        render_ui_text_centered("Night Watch", banner_logical, SDL_Color{118, 81, 48, alpha}, 10.0f);
+        ui::Canvas banner_canvas(banner_logical.x, banner_logical.y, banner_logical.w, banner_logical.h);
+        std::unique_ptr<ui::TextItem> title(new ui::TextItem());
+        title->set_rect(0.0f, 12.0f, banner_logical.w, 26.0f);
+        title->set_font(hud_font_);
+        title->set_text("Zombie Game");
+        title->set_color(SDL_Color{249, 235, 208, alpha});
+        title->set_fit_to_bounds(false);
+        title->set_horizontal_align(ui::HorizontalAlign::Center);
+        title->set_vertical_align(ui::VerticalAlign::Middle);
+        banner_canvas.add_child(std::move(title));
+        std::unique_ptr<ui::TextItem> subtitle(new ui::TextItem());
+        subtitle->set_rect(0.0f, 38.0f, banner_logical.w, 20.0f);
+        subtitle->set_font(hud_font_);
+        subtitle->set_text("Night Watch");
+        subtitle->set_color(SDL_Color{118, 81, 48, alpha});
+        subtitle->set_fit_to_bounds(false);
+        subtitle->set_horizontal_align(ui::HorizontalAlign::Center);
+        subtitle->set_vertical_align(ui::VerticalAlign::Middle);
+        banner_canvas.add_child(std::move(subtitle));
+        ui::RenderContext banner_context;
+        banner_context.renderer = renderer_;
+        banner_context.presentation_rect = presentation_rect_;
+        banner_context.alpha = alpha;
+        banner_canvas.render(banner_context, SDL_FRect{0.0f, 0.0f, static_cast<float>(kUiDesignWidth), static_cast<float>(kUiDesignHeight)});
 
         for (int i = 0; i < 4; ++i) {
             const TitleButtonSpec spec = title_button_spec(i);
@@ -281,15 +340,42 @@ void HudRenderer::render_title_screen(
                 alpha);
         }
     } else {
-        const SDL_FRect panel = ui_to_screen_rect(to_ui_rect(UiNormalizedRect{0.66f, 0.25f, 0.24f, 0.18f}));
-        SDL_SetRenderDrawColor(renderer_, 8, 12, 18, static_cast<Uint8>(alpha * 0.78f));
-        SDL_RenderFillRect(renderer_, &panel);
-        SDL_SetRenderDrawColor(renderer_, 102, 112, 126, alpha);
-        SDL_RenderRect(renderer_, &panel);
-
-        render_ui_text("Zombie Game", 1290.0f, 286.0f, SDL_Color{255, 255, 255, alpha});
-        render_ui_text("Survive the night", 1290.0f, 326.0f, SDL_Color{255, 255, 255, alpha});
-        render_ui_text("Click or Press Enter", 1290.0f, 426.0f, SDL_Color{255, 255, 255, alpha});
+        const SDL_FRect panel_logical = to_ui_rect(UiNormalizedRect{0.66f, 0.25f, 0.24f, 0.18f});
+        ui::Canvas fallback_panel(panel_logical.x, panel_logical.y, panel_logical.w, panel_logical.h);
+        std::unique_ptr<ui::BoxItem> background(new ui::BoxItem());
+        background->set_rect(0.0f, 0.0f, panel_logical.w, panel_logical.h);
+        background->set_fill_color(SDL_Color{8, 12, 18, static_cast<Uint8>(alpha * 0.78f)});
+        background->set_border_color(SDL_Color{102, 112, 126, alpha});
+        background->set_fill_enabled(true);
+        background->set_border_enabled(true);
+        fallback_panel.add_child(std::move(background));
+        const struct LabelSpec {
+            float x;
+            float y;
+            float w;
+            float h;
+            const char* text;
+        } labels[] = {
+            {24.0f, 18.0f, panel_logical.w - 48.0f, 28.0f, "Zombie Game"},
+            {24.0f, 54.0f, panel_logical.w - 48.0f, 24.0f, "Survive the night"},
+            {24.0f, 144.0f, panel_logical.w - 48.0f, 22.0f, "Click or Press Enter"},
+        };
+        for (const LabelSpec& spec : labels) {
+            std::unique_ptr<ui::TextItem> item(new ui::TextItem());
+            item->set_rect(spec.x, spec.y, spec.w, spec.h);
+            item->set_font(hud_font_);
+            item->set_text(spec.text);
+            item->set_color(SDL_Color{255, 255, 255, alpha});
+            item->set_fit_to_bounds(false);
+            item->set_horizontal_align(ui::HorizontalAlign::Left);
+            item->set_vertical_align(ui::VerticalAlign::Middle);
+            fallback_panel.add_child(std::move(item));
+        }
+        ui::RenderContext fallback_context;
+        fallback_context.renderer = renderer_;
+        fallback_context.presentation_rect = presentation_rect_;
+        fallback_context.alpha = alpha;
+        fallback_panel.render(fallback_context, SDL_FRect{0.0f, 0.0f, static_cast<float>(kUiDesignWidth), static_cast<float>(kUiDesignHeight)});
     }
 
     SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_NONE);
@@ -304,6 +390,9 @@ void HudRenderer::render_gameplay_hud(
     int alive_count,
     const SDL_FRect& presentation_rect)
 {
+    if (kEnableUiLayoutHotReload && gameplay_layout_hot_reload_.poll_changed()) {
+        gameplay_layout_->load("assets/ui/layouts/game_hud.json");
+    }
     presentation_rect_ = presentation_rect;
     ensure_hud_font(ui_presentation_scale(presentation_rect_));
     SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
@@ -340,6 +429,27 @@ void HudRenderer::render_gameplay_hud(
     const std::string& mode_build = strings.get("mode.build", "Build");
     const std::string& mode_blueprint = strings.get("mode.blueprint", "Blueprint");
     const std::string& mode_support = strings.get("mode.support", "Support");
+
+    const SDL_FRect root_rect{0.0f, 0.0f, static_cast<float>(kUiDesignWidth), static_cast<float>(kUiDesignHeight)};
+    const auto make_label = [&](float x, float y, float w, float h, const char* text, SDL_Color color, ui::HorizontalAlign h_align = ui::HorizontalAlign::Left) -> std::unique_ptr<ui::TextItem> {
+        std::unique_ptr<ui::TextItem> item(new ui::TextItem());
+        item->set_rect(x, y, w, h);
+        item->set_font(hud_font_);
+        item->set_text(text);
+        item->set_color(color);
+        item->set_fit_to_bounds(false);
+        item->set_horizontal_align(h_align);
+        item->set_vertical_align(ui::VerticalAlign::Middle);
+        return item;
+    };
+    const auto render_canvas = [&](const ui::Canvas& canvas) {
+        ui::RenderContext context;
+        context.renderer = renderer_;
+        context.presentation_rect = presentation_rect_;
+        context.alpha = 255;
+        canvas.render(context, root_rect);
+    };
+
     ui::Panel portrait_panel(layout.portrait_panel_rect().x, layout.portrait_panel_rect().y, layout.portrait_panel_rect().w, layout.portrait_panel_rect().h);
     portrait_panel.render(renderer_, assets.panel_skin, hud_font_, presentation_rect_, text_primary, 245);
 
@@ -351,7 +461,9 @@ void HudRenderer::render_gameplay_hud(
         portrait_screen.h - 16.0f
     };
     render_texture_fit(renderer_, assets.hero, portrait_image, true);
-    render_ui_text("Lv. 2", 40.0f, 97.0f, text_primary);
+    ui::Canvas portrait_canvas(layout.portrait_panel_rect().x, layout.portrait_panel_rect().y, layout.portrait_panel_rect().w, layout.portrait_panel_rect().h);
+    portrait_canvas.add_child(make_label(18.0f, 88.0f, 90.0f, 20.0f, "Lv. 2", text_primary));
+    render_canvas(portrait_canvas);
 
     struct StatusBarSpec {
         const char* label;
@@ -365,8 +477,9 @@ void HudRenderer::render_gameplay_hud(
         {"STM", 85.0f, 100.0f, accent_blue, 64.0f},
         {"MOR", 65.0f, 100.0f, accent_yellow, 94.0f},
     };
+    ui::Canvas portrait_status_canvas(layout.portrait_panel_rect().x, layout.portrait_panel_rect().y, layout.portrait_panel_rect().w, layout.portrait_panel_rect().h);
     for (const StatusBarSpec& bar : bars) {
-        render_ui_text(bar.label, 122.0f, bar.y - 2.0f, text_secondary);
+        portrait_status_canvas.add_child(make_label(112.0f, bar.y - 2.0f, 42.0f, 18.0f, bar.label, text_secondary));
         ui::ProgressBar meter(160.0f, bar.y, 170.0f, 16.0f, ui::ProgressBarOrientation::Horizontal);
         meter.set_progress(bar.max_value > 0.0f ? bar.value / bar.max_value : 0.0f);
         meter.render(
@@ -377,8 +490,17 @@ void HudRenderer::render_gameplay_hud(
             240);
         char value_text[32];
         std::snprintf(value_text, sizeof(value_text), "%.0f/%.0f", bar.value, bar.max_value);
-        render_progress_label_value(value_text, "", 160.0f, bar.y - 2.0f, 170.0f, with_alpha(bar.color, 255));
+        portrait_status_canvas.add_child(
+            make_label(
+                160.0f,
+                bar.y - 2.0f,
+                170.0f,
+                18.0f,
+                value_text,
+                with_alpha(bar.color, 255),
+                ui::HorizontalAlign::Right));
     }
+    render_canvas(portrait_status_canvas);
 
     const struct TopPanelSpec {
         const char* title;
@@ -394,51 +516,61 @@ void HudRenderer::render_gameplay_hud(
         const TopPanelSpec& panel_spec = top_panels[i];
         ui::Panel panel(panel_spec.rect.x, panel_spec.rect.y, panel_spec.rect.w, panel_spec.rect.h);
         panel.render(renderer_, assets.panel_skin, hud_font_, presentation_rect_, text_primary, 238);
+        ui::Canvas text_canvas(panel_spec.rect.x, panel_spec.rect.y, panel_spec.rect.w, panel_spec.rect.h);
+        text_canvas.add_child(make_label(22.0f, 10.0f, panel_spec.rect.w - 44.0f, 18.0f, panel_spec.title, text_secondary));
         if (i == 1) {
             char value[32];
             std::snprintf(value, sizeof(value), "%d", inventory.resources().coins);
-            render_panel_title_value(panel_spec.title, value, panel_spec.rect, text_secondary, text_primary);
+            text_canvas.add_child(make_label(22.0f, 28.0f, panel_spec.rect.w - 44.0f, 20.0f, value, text_primary));
         } else if (i == 2) {
             char value[32];
             std::snprintf(value, sizeof(value), "%d", inventory.resources().gems);
-            render_panel_title_value(panel_spec.title, value, panel_spec.rect, text_secondary, text_primary);
+            text_canvas.add_child(make_label(22.0f, 28.0f, panel_spec.rect.w - 44.0f, 20.0f, value, text_primary));
         } else if (i == 3) {
             char value[32];
             std::snprintf(value, sizeof(value), "%d/%d", inventory.resources().medicine, inventory.resources().medicine);
-            render_panel_title_value(panel_spec.title, value, panel_spec.rect, text_secondary, text_primary);
+            text_canvas.add_child(make_label(22.0f, 28.0f, panel_spec.rect.w - 44.0f, 20.0f, value, text_primary));
         } else {
-            render_panel_title_value(panel_spec.title, panel_spec.value, panel_spec.rect, text_secondary, accent_green);
+            text_canvas.add_child(make_label(22.0f, 28.0f, panel_spec.rect.w - 44.0f, 20.0f, panel_spec.value, accent_green));
         }
+        render_canvas(text_canvas);
     }
 
     const SDL_FRect time_rect = layout.time_panel_rect();
     ui::Panel time_panel(time_rect.x, time_rect.y, time_rect.w, time_rect.h);
     time_panel.render(renderer_, assets.panel_skin, hud_font_, presentation_rect_, text_primary, 238);
-    render_panel_title_value(top_day.c_str(), top_time.c_str(), time_panel.logical_rect(), text_secondary, text_primary);
+    ui::Canvas time_canvas(time_rect.x, time_rect.y, time_rect.w, time_rect.h);
+    time_canvas.add_child(make_label(22.0f, 10.0f, time_rect.w - 44.0f, 18.0f, top_day.c_str(), text_secondary));
+    time_canvas.add_child(make_label(22.0f, 28.0f, time_rect.w - 44.0f, 20.0f, top_time.c_str(), text_primary));
+    render_canvas(time_canvas);
 
     const SDL_FRect objectives_rect = layout.objectives_panel_rect();
     ui::Panel objectives_panel(objectives_rect.x, objectives_rect.y, objectives_rect.w, objectives_rect.h);
     objectives_panel.set_title(panel_objectives.c_str()).render(renderer_, assets.panel_skin, hud_font_, presentation_rect_, text_primary, 240);
-    render_ui_text(objective_main.c_str(), objectives_rect.x + 38.0f, objectives_rect.y + 54.0f, accent_gold);
-    render_ui_text(objective_radio.c_str(), objectives_rect.x + 42.0f, objectives_rect.y + 92.0f, text_primary);
-    render_ui_text("0 / 1", objectives_rect.x + objectives_rect.w - 78.0f, objectives_rect.y + 92.0f, text_secondary);
-    render_ui_text(objective_side.c_str(), objectives_rect.x + 38.0f, objectives_rect.y + 142.0f, accent_gold);
-    render_ui_text(objective_wood.c_str(), objectives_rect.x + 42.0f, objectives_rect.y + 180.0f, text_primary);
+    ui::Canvas objectives_canvas(objectives_rect.x, objectives_rect.y, objectives_rect.w, objectives_rect.h);
+    objectives_canvas.add_child(make_label(38.0f, 48.0f, objectives_rect.w - 76.0f, 22.0f, objective_main.c_str(), accent_gold));
+    objectives_canvas.add_child(make_label(42.0f, 86.0f, objectives_rect.w - 120.0f, 22.0f, objective_radio.c_str(), text_primary));
+    objectives_canvas.add_child(make_label(objectives_rect.w - 78.0f, 86.0f, 56.0f, 22.0f, "0 / 1", text_secondary, ui::HorizontalAlign::Right));
+    objectives_canvas.add_child(make_label(38.0f, 136.0f, objectives_rect.w - 76.0f, 22.0f, objective_side.c_str(), accent_gold));
+    objectives_canvas.add_child(make_label(42.0f, 174.0f, objectives_rect.w - 120.0f, 22.0f, objective_wood.c_str(), text_primary));
     char wood_text[16];
     char metal_text[16];
     std::snprintf(wood_text, sizeof(wood_text), "%d / 10", std::min(inventory.resources().wood, 10));
     std::snprintf(metal_text, sizeof(metal_text), "%d / 5", std::min(inventory.resources().parts, 5));
-    render_ui_text(wood_text, objectives_rect.x + objectives_rect.w - 78.0f, objectives_rect.y + 180.0f, text_secondary);
-    render_ui_text(objective_parts.c_str(), objectives_rect.x + 42.0f, objectives_rect.y + 214.0f, text_primary);
-    render_ui_text(metal_text, objectives_rect.x + objectives_rect.w - 78.0f, objectives_rect.y + 214.0f, text_secondary);
+    objectives_canvas.add_child(make_label(objectives_rect.w - 78.0f, 174.0f, 56.0f, 22.0f, wood_text, text_secondary, ui::HorizontalAlign::Right));
+    objectives_canvas.add_child(make_label(42.0f, 208.0f, objectives_rect.w - 120.0f, 22.0f, objective_parts.c_str(), text_primary));
+    objectives_canvas.add_child(make_label(objectives_rect.w - 78.0f, 208.0f, 56.0f, 22.0f, metal_text, text_secondary, ui::HorizontalAlign::Right));
+    render_canvas(objectives_canvas);
 
     const SDL_FRect warning_rect = layout.warning_panel_rect();
     ui::Panel warning_panel(warning_rect.x, warning_rect.y, warning_rect.w, warning_rect.h);
     warning_panel.set_title(panel_warning.c_str()).render(renderer_, assets.panel_skin, hud_font_, presentation_rect_, text_primary, 240);
-    render_ui_text(warning_tide.c_str(), warning_rect.x + 44.0f, warning_rect.y + 58.0f, text_primary);
+    ui::Canvas warning_canvas(warning_rect.x, warning_rect.y, warning_rect.w, warning_rect.h);
+    warning_canvas.add_child(make_label(44.0f, 52.0f, warning_rect.w - 88.0f, 22.0f, warning_tide.c_str(), text_primary));
     char timer_text[32];
     std::snprintf(timer_text, sizeof(timer_text), "00:%02d", 50 + (wave % 10));
-    render_ui_text(timer_text, warning_rect.x + 114.0f, warning_rect.y + 107.0f, accent_red);
+    warning_canvas.add_child(make_label(84.0f, 98.0f, warning_rect.w - 168.0f, 30.0f, timer_text, accent_red, ui::HorizontalAlign::Center));
+    render_canvas(warning_canvas);
 
     const char* modes[] = {mode_combat.c_str(), mode_build.c_str(), mode_blueprint.c_str(), mode_support.c_str()};
     for (int i = 0; i < 4; ++i) {
@@ -475,8 +607,15 @@ void HudRenderer::render_gameplay_hud(
             render_texture_fit(renderer_, item->icon, inset_rect(screen_rect, 18.0f, 18.0f), true);
         } else if (inventory.current_mode() == ToolMode::Combat && i < 2 && i < weapon.slot_count()) {
             const WeaponSlot* weapon_slots = weapon.slots();
-            if (weapon_slots[i].definition != nullptr && weapon_slots[i].definition->preview_texture.valid()) {
-                render_texture_fit(renderer_, weapon_slots[i].definition->preview_texture, inset_rect(screen_rect, 18.0f, 18.0f), true);
+            if (weapon_slots[i].definition != nullptr) {
+                const Texture* icon = weapon_slots[i].definition->icon_texture.valid()
+                    ? &weapon_slots[i].definition->icon_texture
+                    : (weapon_slots[i].definition->preview_texture.valid()
+                        ? &weapon_slots[i].definition->preview_texture
+                        : nullptr);
+                if (icon != nullptr) {
+                    render_texture_fit(renderer_, *icon, inset_rect(screen_rect, 18.0f, 18.0f), true);
+                }
             }
         }
         const char* title = slot.locked ? "Locked" : (item != nullptr ? item->name.c_str() : "");
@@ -490,8 +629,26 @@ void HudRenderer::render_gameplay_hud(
                 std::snprintf(meta, sizeof(meta), "x%d", slot.quantity);
             }
         }
-        render_ui_text_centered(title, logical_rect, slot.locked ? text_secondary : text_primary, 16.0f);
-        render_ui_text_centered(meta, logical_rect, text_secondary, 38.0f);
+        ui::Canvas slot_canvas(logical_rect.x, logical_rect.y, logical_rect.w, logical_rect.h);
+        slot_canvas.add_child(
+            make_label(
+                10.0f,
+                logical_rect.h - 44.0f,
+                logical_rect.w - 20.0f,
+                18.0f,
+                title,
+                slot.locked ? text_secondary : text_primary,
+                ui::HorizontalAlign::Center));
+        slot_canvas.add_child(
+            make_label(
+                10.0f,
+                logical_rect.h - 22.0f,
+                logical_rect.w - 20.0f,
+                16.0f,
+                meta,
+                text_secondary,
+                ui::HorizontalAlign::Center));
+        render_canvas(slot_canvas);
     }
 
     const struct SurvivorSpec {
@@ -513,7 +670,9 @@ void HudRenderer::render_gameplay_hud(
             90.0f
         };
         render_texture_fit(renderer_, assets.hero, ui_to_screen_rect(portrait_rect), true);
-        render_ui_text_centered(survivor.name, survivor.rect, text_primary, 28.0f);
+        ui::Canvas survivor_canvas(survivor.rect.x, survivor.rect.y, survivor.rect.w, survivor.rect.h);
+        survivor_canvas.add_child(make_label(0.0f, 82.0f, survivor.rect.w, 22.0f, survivor.name, text_primary, ui::HorizontalAlign::Center));
+        render_canvas(survivor_canvas);
         ui::ProgressBar hp_bar(
             survivor.rect.x + 18.0f,
             survivor.rect.y + survivor.rect.h - 28.0f,
@@ -600,100 +759,12 @@ void HudRenderer::render_text_colored(const char* text, float x, float y, SDL_Co
     SDL_DestroySurface(surface);
 }
 
-void HudRenderer::render_text_centered(const char* text, const SDL_FRect& rect, SDL_Color color, float y_offset)
-{
-    if (hud_font_ == nullptr || text == nullptr || text[0] == '\0') {
-        return;
-    }
-
-    int text_width = 0;
-    int text_height = 0;
-    if (!TTF_GetStringSize(hud_font_, text, 0, &text_width, &text_height)) {
-        return;
-    }
-
-    const float scale = presentation_scale(presentation_rect_);
-    const float logical_text_width = static_cast<float>(text_width) / scale;
-    const float logical_text_height = static_cast<float>(text_height) / scale;
-    const float x = rect.x + std::floor((rect.w - logical_text_width) * 0.5f);
-    const float y = rect.y + std::floor((rect.h - logical_text_height) * 0.5f) + y_offset;
-    render_text_colored(text, x, y, color);
-}
-
-void HudRenderer::render_ui_text(const char* text, float x, float y, SDL_Color color)
-{
-    if (hud_font_ == nullptr || text == nullptr || text[0] == '\0') {
-        return;
-    }
-
-    SDL_Surface* surface = TTF_RenderText_Blended(hud_font_, text, 0, color);
-    if (surface == nullptr) {
-        return;
-    }
-
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer_, surface);
-    if (texture == nullptr) {
-        SDL_DestroySurface(surface);
-        return;
-    }
-
-    SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_NEAREST);
-    const SDL_FRect dst{
-        ui_to_screen_x(x),
-        ui_to_screen_y(y),
-        static_cast<float>(surface->w),
-        static_cast<float>(surface->h)
-    };
-    SDL_RenderTexture(renderer_, texture, nullptr, &dst);
-
-    SDL_DestroyTexture(texture);
-    SDL_DestroySurface(surface);
-}
-
-void HudRenderer::render_ui_text_centered(const char* text, const SDL_FRect& rect, SDL_Color color, float y_offset)
-{
-    if (hud_font_ == nullptr || text == nullptr || text[0] == '\0') {
-        return;
-    }
-
-    int text_width = 0;
-    int text_height = 0;
-    if (!TTF_GetStringSize(hud_font_, text, 0, &text_width, &text_height)) {
-        return;
-    }
-
-    const float x_scale = ui_presentation_scale_x(presentation_rect_);
-    const float y_scale = ui_presentation_scale_y(presentation_rect_);
-    const float logical_text_width = static_cast<float>(text_width) / x_scale;
-    const float logical_text_height = static_cast<float>(text_height) / y_scale;
-    const float x = rect.x + std::floor((rect.w - logical_text_width) * 0.5f);
-    const float y = rect.y + std::floor((rect.h - logical_text_height) * 0.5f) + y_offset;
-    render_ui_text(text, x, y, color);
-}
-
-void HudRenderer::render_panel_title_value(const char* title, const char* value, const SDL_FRect& rect, SDL_Color title_color, SDL_Color value_color)
-{
-    render_ui_text(title, rect.x + 22.0f, rect.y + 14.0f, title_color);
-    if (value != nullptr && value[0] != '\0') {
-        render_ui_text(value, rect.x + 22.0f, rect.y + 32.0f, value_color);
-    }
-}
-
-void HudRenderer::render_progress_label_value(const char* label, const char* value, float x, float y, float width, SDL_Color color)
-{
-    if (label != nullptr && label[0] != '\0') {
-        render_ui_text(label, x + 6.0f, y + 1.0f, color);
-    }
-    if (value != nullptr && value[0] != '\0') {
-        render_ui_text(value, x + width - 48.0f, y + 1.0f, color);
-    }
-}
-
 void HudRenderer::render_slot_bar(const WeaponState& weapon, float x, float y)
 {
     const float slot_width = 44.0f;
     const float slot_height = 28.0f;
     const float gap = 10.0f;
+    const SDL_FRect root_rect{0.0f, 0.0f, static_cast<float>(kUiDesignWidth), static_cast<float>(kUiDesignHeight)};
 
     for (int i = 0; i < weapon.slot_count(); ++i) {
         const float slot_x = x + i * (slot_width + gap);
@@ -708,12 +779,36 @@ void HudRenderer::render_slot_bar(const WeaponState& weapon, float x, float y)
             SDL_RenderFillRect(renderer_, &rect);
             SDL_SetRenderDrawColor(renderer_, 136, 142, 150, 255);
             SDL_RenderRect(renderer_, &rect);
-            SDL_SetRenderDrawColor(renderer_, 220, 224, 232, 255);
+        }
+
+        const WeaponSlot* slots = weapon.slots();
+        const WeaponDefinition* definition = slots[i].definition;
+        if (definition != nullptr) {
+            const Texture* icon = definition->icon_texture.valid()
+                ? &definition->icon_texture
+                : (definition->preview_texture.valid() ? &definition->preview_texture : nullptr);
+            if (icon != nullptr) {
+                render_texture_fit(renderer_, *icon, SDL_FRect{rect.x + 4.0f, rect.y + 4.0f, rect.w - 8.0f, rect.h - 8.0f}, true);
+            }
         }
 
         char label[4];
         std::snprintf(label, sizeof(label), "%d", i + 1);
-        render_ui_text(label, slot_x + 15.0f, y + 4.0f, SDL_Color{220, 224, 232, 255});
+        ui::Canvas slot_label(slot_x, y - 4.0f, slot_width, 14.0f);
+        std::unique_ptr<ui::TextItem> label_item(new ui::TextItem());
+        label_item->set_rect(0.0f, 0.0f, slot_width, 14.0f);
+        label_item->set_font(hud_font_);
+        label_item->set_text(label);
+        label_item->set_color(SDL_Color{220, 224, 232, 255});
+        label_item->set_fit_to_bounds(false);
+        label_item->set_horizontal_align(ui::HorizontalAlign::Left);
+        label_item->set_vertical_align(ui::VerticalAlign::Top);
+        slot_label.add_child(std::move(label_item));
+        ui::RenderContext context;
+        context.renderer = renderer_;
+        context.presentation_rect = presentation_rect_;
+        context.alpha = 255;
+        slot_label.render(context, root_rect);
     }
 }
 

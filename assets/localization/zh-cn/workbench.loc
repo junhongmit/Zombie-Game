@@ -1,0 +1,48 @@
+# 工作台界面文本
+
+top.workbench=工作台
+top.level=Lv. 2
+top.metal=金属 350
+top.wood=木材 126
+top.parts=零件 78
+top.fabric=布料 23
+top.gems=钻石 0
+top.back=Esc 返回
+
+panel.weapon_list=武器列表
+panel.weapon_stats=武器属性
+panel.current_effects=当前效果
+panel.upgrade_requirements=升级需求
+panel.attachment_slots=改装部位
+panel.available_parts=可用配件
+
+weapon.fire_mode.auto=自动
+weapon.fire_mode.semi=半自动
+
+stat.damage=伤害
+stat.fire_rate=射速
+stat.magazine=弹匣
+stat.recoil=后坐力
+stat.loudness=响度
+
+effects.accuracy_up=+ 精准度 +10
+effects.reload_up=+ 换弹速度 +15%
+
+upgrade.metal_parts=金属零件 78 / 15
+upgrade.polymer_parts=塑料零件 23 / 10
+upgrade.fabric=布料 12 / 5
+upgrade.tool_level=工具等级 Lv. 2
+
+attachment.muzzle=枪口
+attachment.barrel=枪管
+attachment.sight=瞄具
+attachment.magazine=弹匣
+attachment.grip=握把
+attachment.stock=枪托
+weapon.category.pistol=手枪
+weapon.category.rifle=步枪
+weapon.category.shotgun=霰弹枪
+weapon.category.sniper=狙击枪
+weapon.category.smg=冲锋枪
+weapon.category.launcher=发射器
+weapon.category.unknown=武器

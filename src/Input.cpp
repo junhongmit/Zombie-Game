@@ -57,6 +57,15 @@ void InputState::poll(SDL_Renderer* renderer)
     const bool inventory_down = keys[SDL_SCANCODE_I] || keys[SDL_SCANCODE_TAB];
     inventory_pressed = inventory_down && !previous_inventory_down_;
     previous_inventory_down_ = inventory_down;
+    const bool use_down = keys[SDL_SCANCODE_E];
+    use_pressed = use_down && !previous_use_down_;
+    previous_use_down_ = use_down;
+    const bool drop_down = keys[SDL_SCANCODE_T];
+    drop_pressed = drop_down && !previous_drop_down_;
+    previous_drop_down_ = drop_down;
+    const bool split_down = keys[SDL_SCANCODE_F];
+    split_pressed = split_down && !previous_split_down_;
+    previous_split_down_ = split_down;
     const bool confirm_down = keys[SDL_SCANCODE_RETURN] || keys[SDL_SCANCODE_KP_ENTER];
     confirm_pressed = confirm_down && !previous_confirm_down_;
     previous_confirm_down_ = confirm_down;

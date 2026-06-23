@@ -151,11 +151,12 @@ void ListView::update_and_render(
     Uint8 alpha)
 {
     if (draw_panel_) {
-        Panel render_panel = panel_;
-        if (!draw_title_) {
-            render_panel.set_title("");
+        if (draw_title_) {
+            panel_.render(renderer, panel_style, font, presentation_rect, title_color, alpha);
+        } else {
+            const SDL_FRect screen_rect = ui_logical_to_present_rect(panel_.logical_rect(), presentation_rect);
+            panel_style.render(renderer, screen_rect, panel_.enabled() ? ControlVisualState::Normal : ControlVisualState::Disabled, alpha);
         }
-        render_panel.render(renderer, panel_style, font, presentation_rect, title_color, alpha);
     }
 
     SDL_FRect logical_content_rect = draw_panel_

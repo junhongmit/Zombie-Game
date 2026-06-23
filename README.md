@@ -2,7 +2,7 @@
 
 A pixel-art side-scrolling zombie survival shooter now maintained on an SDL3-based mainline.
 
-The old Win32/GDI practice version is preserved under [archived/legacy_win32](D:/Code/game/archived/legacy_win32) as a historical baseline, but active development now happens in `src/` and `assets/`.
+Active development now happens in `src/` and `assets/`. Legacy Win32/GDI experiments can still live locally for reference, but they are no longer part of the main tracked branch.
 
 ## Recommended Windows Setup
 

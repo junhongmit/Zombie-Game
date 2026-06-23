@@ -567,8 +567,12 @@ bool ControlStyle::load(SDL_Renderer* renderer, const char* image_path, const ch
     max_size_ = SDL_Point{0, 0};
     min_size_ = SDL_Point{0, 0};
 
-    if (!texture_.load(renderer, image_path, true)) {
+    if (!texture_.load(renderer, image_path, false)) {
         return false;
+    }
+
+    if (texture_.get() != nullptr) {
+        SDL_SetTextureScaleMode(texture_.get(), SDL_SCALEMODE_LINEAR);
     }
 
     std::string text;
@@ -676,9 +680,10 @@ SDL_FRect ControlStyle::content_rect(const SDL_FRect& dst) const
 
 SDL_FRect ControlStyle::map_region(const ControlRect& region, const SDL_FRect& dst, ControlVisualState visual_state) const
 {
-    const ControlStateStyle& active = resolved_state(visual_state);
-    const float scaled_frame_w = std::max(1.0f, static_cast<float>(active.frame.w) * style_scale_);
-    const float scaled_frame_h = std::max(1.0f, static_cast<float>(active.frame.h) * style_scale_);
+    (void)visual_state;
+    const ControlStateStyle& canonical = resolved_state(ControlVisualState::Normal);
+    const float scaled_frame_w = std::max(1.0f, static_cast<float>(canonical.frame.w) * style_scale_);
+    const float scaled_frame_h = std::max(1.0f, static_cast<float>(canonical.frame.h) * style_scale_);
     const float x_scale = dst.w / scaled_frame_w;
     const float y_scale = dst.h / scaled_frame_h;
     return SDL_FRect{
@@ -691,9 +696,10 @@ SDL_FRect ControlStyle::map_region(const ControlRect& region, const SDL_FRect& d
 
 SDL_FRect ControlStyle::fit_region_to_rect(const ControlRect& region, const SDL_FRect& mapped_rect, ControlVisualState visual_state) const
 {
-    const ControlStateStyle& active = resolved_state(visual_state);
-    const float scaled_frame_w = std::max(1.0f, static_cast<float>(active.frame.w) * style_scale_);
-    const float scaled_frame_h = std::max(1.0f, static_cast<float>(active.frame.h) * style_scale_);
+    (void)visual_state;
+    const ControlStateStyle& canonical = resolved_state(ControlVisualState::Normal);
+    const float scaled_frame_w = std::max(1.0f, static_cast<float>(canonical.frame.w) * style_scale_);
+    const float scaled_frame_h = std::max(1.0f, static_cast<float>(canonical.frame.h) * style_scale_);
     const float scaled_region_w = std::max(1.0f, scaled_metric(region.w, style_scale_));
     const float scaled_region_h = std::max(1.0f, scaled_metric(region.h, style_scale_));
     const float scaled_region_x = scaled_metric(region.x, style_scale_);

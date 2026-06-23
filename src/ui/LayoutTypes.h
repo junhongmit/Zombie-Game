@@ -22,8 +22,14 @@ struct LayoutTextNode {
     std::string text;
 };
 
+struct LayoutPanelNode {
+    NormalizedRect rect;
+    std::string skin;
+};
+
 struct LayoutContainerNode {
     NormalizedRect rect;
+    std::string skin;
     LayoutTextNode title;
     NormalizedRect list_view;
 };

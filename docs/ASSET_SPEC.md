@@ -31,31 +31,40 @@ Primary weapon metadata should now live in:
 
 Legacy `assets/weapons/weapon.ini` can remain as a compatibility fallback during migration, but new weapon content should be authored in JSON first.
 
-For SDL3 workbench previews, use one normalized weapon id in `snake_case`.
+For SDL3 weapon assets, use one normalized weapon id in `snake_case` and keep each weapon in its own folder.
 
 Recommended convention:
 
+- weapon folder:
+  - `assets/weapons/<weapon_id>/`
 - preview sprite:
-  - `assets/weapons/<weapon_id>.png`
+  - `assets/weapons/<weapon_id>/preview.png`
 - preview depth map:
-  - `assets/weapons/<weapon_id>_depth.png`
+  - `assets/weapons/<weapon_id>/preview_depth.png`
+- inventory/workbench icon:
+  - `assets/weapons/<weapon_id>/icon.png`
 - held/in-game sprite:
-  - `assets/weapons/hold_<weapon_id>.png`
+  - `assets/weapons/<weapon_id>/hold.png`
+- weapon sounds:
+  - `assets/weapons/<weapon_id>/sounds/<sound_name>.wav`
 
 Examples:
 
-- `assets/weapons/glock.png`
-- `assets/weapons/glock_depth.png`
-- `assets/weapons/hold_glock.png`
-- `assets/weapons/desert_eagle.png`
-- `assets/weapons/desert_eagle_depth.png`
-- `assets/weapons/hold_desert_eagle.png`
+- `assets/weapons/glock/preview.png`
+- `assets/weapons/glock/preview_depth.png`
+- `assets/weapons/glock/icon.png`
+- `assets/weapons/glock/hold.png`
+- `assets/weapons/glock/sounds/glock18-2.wav`
+- `assets/weapons/desert_eagle/preview.png`
+- `assets/weapons/desert_eagle/preview_depth.png`
+- `assets/weapons/desert_eagle/icon.png`
+- `assets/weapons/desert_eagle/hold.png`
 
 Notes:
 
 - New assets should avoid spaces and mixed casing.
-- Treat the `weapon_id` as the canonical join key across preview art, depth art, metadata, and future localization.
-- Legacy names from `weapon.ini` such as `hold desert eagle.png` can remain for backward compatibility, but new content should not copy that style.
+- Treat the `weapon_id` folder as the canonical asset bundle for preview art, depth art, icons, held sprites, sounds, metadata, and future localization.
+- Legacy flat names from `weapon.ini` such as `hold desert eagle.png` should be migrated into weapon folders when touched.
 
 ## Sprite Sheet Metadata
 
