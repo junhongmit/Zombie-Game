@@ -132,6 +132,7 @@ TitleButtonSpec title_button_spec(int index)
         {"Start Game", TitleMenuAction::Start, true},
         {"Loadout", TitleMenuAction::Loadout, true},
         {"Black Market", TitleMenuAction::Market, true},
+        {"Rig Lab", TitleMenuAction::RigLab, true},
         {"Exit", TitleMenuAction::Exit, true},
     };
     return kButtons[index];
@@ -322,7 +323,7 @@ void HudRenderer::render_title_screen(
         banner_context.alpha = alpha;
         banner_canvas.render(banner_context, SDL_FRect{0.0f, 0.0f, static_cast<float>(kUiDesignWidth), static_cast<float>(kUiDesignHeight)});
 
-        for (int i = 0; i < 4; ++i) {
+        for (int i = 0; i < 5; ++i) {
             const TitleButtonSpec spec = title_button_spec(i);
             const ui::Button button = title_button(i);
             button.render(
@@ -697,7 +698,7 @@ TitleMenuAction HudRenderer::hit_test_title_menu(float mouse_x, float mouse_y, b
         return TitleMenuAction::None;
     }
 
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < 5; ++i) {
         const TitleButtonSpec spec = title_button_spec(i);
         const ui::Button button = title_button(i);
         if (button.contains(mouse_x, mouse_y, mouse_in_view)) {

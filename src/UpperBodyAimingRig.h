@@ -4,6 +4,7 @@
 
 namespace zg {
 
+struct CharacterRigAsset;
 struct Player;
 struct WeaponDefinition;
 
@@ -30,6 +31,7 @@ struct UpperBodyAimingRigState {
     bool facing_right = true;
     float aim_local_deg = 0.0f;
     float weapon_rotation_deg = 0.0f;
+    float head_rotation_deg = 0.0f;
     SDL_FPoint pelvis{};
     SDL_FPoint torso_base{};
     SDL_FPoint torso_top{};
@@ -37,6 +39,7 @@ struct UpperBodyAimingRigState {
     SDL_FPoint rear_grip{};
     SDL_FPoint front_grip{};
     SDL_FPoint muzzle{};
+    SDL_FPoint aim_target{};
     SDL_FPoint front_shoulder{};
     SDL_FPoint back_shoulder{};
     SDL_FPoint front_elbow_hint{};
@@ -47,7 +50,7 @@ struct UpperBodyAimingRigState {
 
 class UpperBodyAimingRig {
 public:
-    UpperBodyAimingRigState solve(const Player& player, const WeaponDefinition* weapon_definition) const;
+    UpperBodyAimingRigState solve(const Player& player, const WeaponDefinition* weapon_definition, const CharacterRigAsset* rig_asset = nullptr) const;
 
 private:
     UpperBodyAimPoseSample sample_pose(float local_aim_deg) const;

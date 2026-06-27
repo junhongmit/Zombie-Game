@@ -6,6 +6,7 @@ obj/
 .vscode/ipch/
 bin/
 tmp/
+tmp_rig/
 dev/
 archived/
 *.user

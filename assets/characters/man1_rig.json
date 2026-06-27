@@ -1,0 +1,62 @@
+{
+  "sheet": "man1_rig.png",
+  "character_id": "man1",
+  "torso_behavior": {
+    "mode": "rigid_with_mild_scale",
+    "scale_x_min": 0.98,
+    "scale_x_max": 1.02,
+    "scale_y_min": 0.96,
+    "scale_y_max": 1.04
+  },
+  "parts": {
+    "head": {
+      "frame": { "x": 218, "y": 11, "w": 77, "h": 88 },
+      "pivot": { "x": 246, "y": 83 },
+      "anchor": "torso_top",
+      "z_order": 50
+    },
+    "torso": {
+      "frame": { "x": 75, "y": 32, "w": 101, "h": 163 },
+      "pivot": { "x": 128, "y": 47 },
+      "anchor": "torso_top",
+      "z_order": 30,
+      "anchors": {
+        "front_shoulder": { "x": 97, "y": 91 },
+        "back_shoulder": { "x": 157, "y": 87 },
+        "pelvis": { "x": 134, "y": 200 }
+      }
+    },
+    "front_upper_arm": {
+      "frame": { "x": 298, "y": 76, "w": 52, "h": 119 },
+      "pivot": { "x": 328, "y": 96 },
+      "distal_joint": { "x": 319, "y": 182 },
+      "anchor": "front_shoulder",
+      "z_order": 60,
+      "solver_length": 8.5
+    },
+    "front_forearm": {
+      "frame": { "x": 231, "y": 229, "w": 55, "h": 90 },
+      "pivot": { "x": 249, "y": 245 },
+      "distal_joint": { "x": 270, "y": 306 },
+      "anchor": "front_elbow",
+      "z_order": 70,
+      "solver_length": 8.5
+    },
+    "back_upper_arm": {
+      "frame": { "x": 399, "y": 75, "w": 44, "h": 120 },
+      "pivot": { "x": 413, "y": 95 },
+      "distal_joint": { "x": 423, "y": 181 },
+      "anchor": "back_shoulder",
+      "z_order": 10,
+      "solver_length": 8.5
+    },
+    "back_forearm": {
+      "frame": { "x": 355, "y": 229, "w": 50, "h": 90 },
+      "pivot": { "x": 373, "y": 243 },
+      "distal_joint": { "x": 390, "y": 309 },
+      "anchor": "back_elbow",
+      "z_order": 20,
+      "solver_length": 8.5
+    }
+  }
+}

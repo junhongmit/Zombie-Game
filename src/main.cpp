@@ -23,6 +23,7 @@
 #include <SDL3_ttf/SDL_ttf.h>
 
 #include <array>
+#include <cmath>
 #include <cstdio>
 
 namespace {
@@ -37,11 +38,15 @@ enum class GamePhase {
     Intro,
     Workbench,
     Market,
+    RigLab,
     Inventory,
     Playing
 };
 
 constexpr float kIntroDurationSeconds = 0.75f;
+constexpr float kRigLabCameraZoom = 3.0f;
+constexpr float kRigLabPlayerX = 240.0f;
+constexpr float kRigLabPlayerY = 404.0f;
 
 bool init_sdl_window(SDL_Window** window, SDL_Renderer** renderer)
 {
@@ -187,6 +192,9 @@ int main(int, char**)
             } else if (phase == GamePhase::Market) {
                 phase = GamePhase::Title;
                 armed_title_action = zg::TitleMenuAction::None;
+            } else if (phase == GamePhase::RigLab) {
+                phase = GamePhase::Title;
+                armed_title_action = zg::TitleMenuAction::None;
             } else if (phase == GamePhase::Inventory) {
                 phase = GamePhase::Playing;
             } else if (phase == GamePhase::Title) {
@@ -225,6 +233,8 @@ int main(int, char**)
                 phase = GamePhase::Workbench;
             } else if (title_action == zg::TitleMenuAction::Market) {
                 phase = GamePhase::Market;
+            } else if (title_action == zg::TitleMenuAction::RigLab) {
+                phase = GamePhase::RigLab;
             } else if (input.confirm_pressed || title_action == zg::TitleMenuAction::Start) {
                 phase = GamePhase::Intro;
                 intro_timer = 0.0f;
@@ -238,6 +248,35 @@ int main(int, char**)
             camera.target_x = zg::kTitleCameraX;
             camera.x = zg::kTitleCameraX;
             camera.target_zoom = zg::kTitleCameraZoom;
+        } else if (phase == GamePhase::RigLab) {
+            if (input.switch_slot >= 0) {
+                weapon.switch_to_slot(input.switch_slot);
+            } else if (input.cycle_weapon != 0) {
+                weapon.cycle(input.cycle_weapon);
+            }
+            player.x = kRigLabPlayerX;
+            player.y = kRigLabPlayerY;
+            player.vx = 0.0f;
+            player.vy = 0.0f;
+            player.moving = false;
+            player.walk_frame = 0;
+            player.walk_frame_distance = 0.0f;
+            const float rig_lab_half_view = zg::kGameplayViewWidth / (2.0f * kRigLabCameraZoom);
+            camera.x = std::max(0.0f, kRigLabPlayerX - rig_lab_half_view);
+            camera.target_x = camera.x;
+            camera.zoom = kRigLabCameraZoom;
+            camera.target_zoom = kRigLabCameraZoom;
+            if (input.mouse_in_view) {
+                const float aim_world_x = camera.x + input.mouse_x / kRigLabCameraZoom;
+                const float aim_world_y =
+                    (input.mouse_y - zg::kGameplayViewHeight * (1.0f - kRigLabCameraZoom)) / kRigLabCameraZoom;
+                player.aim_world_x = aim_world_x;
+                player.aim_world_y = aim_world_y;
+                const float pivot_x = player.x + (player.facing_right ? 8.0f : 10.0f);
+                const float pivot_y = player.y + 13.0f;
+                player.facing_right = aim_world_x >= pivot_x;
+                player.aim_angle_radians = std::atan2(pivot_y - aim_world_y, aim_world_x - pivot_x);
+            }
         } else if (phase == GamePhase::Inventory) {
             if (input.inventory_pressed) {
                 phase = GamePhase::Playing;
@@ -332,7 +371,7 @@ int main(int, char**)
         camera.update(dt);
 
         float player_alpha = 1.0f;
-        if (phase == GamePhase::Title || phase == GamePhase::Workbench || phase == GamePhase::Market) {
+        if (phase == GamePhase::Title || phase == GamePhase::Workbench || phase == GamePhase::Market || phase == GamePhase::RigLab) {
             player_alpha = 0.0f;
         } else if (phase == GamePhase::Intro) {
             const float t = intro_timer / kIntroDurationSeconds;
@@ -387,6 +426,12 @@ int main(int, char**)
                 phase = GamePhase::Title;
                 armed_title_action = zg::TitleMenuAction::None;
             }
+        } else if (phase == GamePhase::RigLab) {
+            renderer2d.render_rig_preview(
+                assets,
+                player,
+                weapon.current_definition(),
+                camera);
         } else {
             renderer2d.render_scene(
                 assets,

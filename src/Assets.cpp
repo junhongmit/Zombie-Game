@@ -5,6 +5,7 @@
 #include <SDL3/SDL_filesystem.h>
 
 #include <cstdio>
+#include <cstdlib>
 #include <fstream>
 #include <sstream>
 #include <algorithm>
@@ -74,6 +75,42 @@ bool extract_string_value(const std::string& text, const char* key, std::string*
     return true;
 }
 
+bool extract_float_value(const std::string& text, const char* key, float* out)
+{
+    const std::string token = std::string("\"") + key + "\"";
+    const size_t key_pos = text.find(token);
+    if (key_pos == std::string::npos) {
+        return false;
+    }
+
+    const size_t colon_pos = text.find(':', key_pos + token.size());
+    if (colon_pos == std::string::npos) {
+        return false;
+    }
+
+    const size_t value_start = text.find_first_of("-0123456789", colon_pos + 1);
+    if (value_start == std::string::npos) {
+        return false;
+    }
+
+    const size_t value_end = text.find_first_not_of("0123456789.-", value_start);
+    const std::string value = text.substr(
+        value_start,
+        value_end == std::string::npos ? std::string::npos : value_end - value_start);
+    *out = std::strtof(value.c_str(), nullptr);
+    return true;
+}
+
+bool extract_int_value(const std::string& text, const char* key, int* out)
+{
+    float value = 0.0f;
+    if (!extract_float_value(text, key, &value)) {
+        return false;
+    }
+    *out = static_cast<int>(value);
+    return true;
+}
+
 bool extract_object_value(const std::string& text, const char* key, std::string* out)
 {
     const std::string token = std::string("\"") + key + "\"";
@@ -101,6 +138,28 @@ bool extract_object_value(const std::string& text, const char* key, std::string*
     }
 
     return false;
+}
+
+bool parse_rect_value(const std::string& text, const char* key, SDL_Rect* out)
+{
+    std::string object_text;
+    if (!extract_object_value(text, key, &object_text)) {
+        return false;
+    }
+    return extract_int_value(object_text, "x", &out->x) &&
+        extract_int_value(object_text, "y", &out->y) &&
+        extract_int_value(object_text, "w", &out->w) &&
+        extract_int_value(object_text, "h", &out->h);
+}
+
+bool parse_point_value(const std::string& text, const char* key, SDL_FPoint* out)
+{
+    std::string object_text;
+    if (!extract_object_value(text, key, &object_text)) {
+        return false;
+    }
+    return extract_float_value(object_text, "x", &out->x) &&
+        extract_float_value(object_text, "y", &out->y);
 }
 
 std::vector<std::string> extract_object_keys(const std::string& object_text)
@@ -171,10 +230,151 @@ bool load_control_style_from_metadata(SDL_Renderer* renderer, const char* metada
     return out_style->load(renderer, image_path.c_str(), metadata_path, control_name);
 }
 
+bool parse_character_rig_part(const std::string& parts_text, const char* key, CharacterRigPart* out_part)
+{
+    std::string part_text;
+    if (!extract_object_value(parts_text, key, &part_text)) {
+        return false;
+    }
+    if (!parse_rect_value(part_text, "frame", &out_part->frame) ||
+        !parse_point_value(part_text, "pivot", &out_part->pivot) ||
+        !extract_string_value(part_text, "anchor", &out_part->anchor) ||
+        !extract_int_value(part_text, "z_order", &out_part->z_order)) {
+        return false;
+    }
+    extract_float_value(part_text, "solver_length", &out_part->solver_length);
+    out_part->has_distal_joint = parse_point_value(part_text, "distal_joint", &out_part->distal_joint);
+
+    // Pivots are authored in sheet-space coordinates so they are easy to measure
+    // directly in tools like Aseprite. Convert them to part-local coordinates here.
+    out_part->pivot.x -= static_cast<float>(out_part->frame.x);
+    out_part->pivot.y -= static_cast<float>(out_part->frame.y);
+    if (out_part->has_distal_joint) {
+        out_part->distal_joint.x -= static_cast<float>(out_part->frame.x);
+        out_part->distal_joint.y -= static_cast<float>(out_part->frame.y);
+    }
+    return true;
+}
+
+bool load_character_rig_from_metadata(SDL_Renderer* renderer, const char* metadata_path, CharacterRigAsset* out_rig)
+{
+    *out_rig = CharacterRigAsset{};
+
+    const std::string resolved_metadata = resolve_asset_path(metadata_path);
+    std::string text;
+    if (!read_text_file(resolved_metadata, &text)) {
+        return false;
+    }
+
+    std::string sheet_name;
+    if (!extract_string_value(text, "sheet", &sheet_name) || sheet_name.empty()) {
+        return false;
+    }
+
+    const std::string metadata_string(metadata_path);
+    const size_t slash_pos = metadata_string.find_last_of("/\\");
+    const std::string sheet_asset_path = slash_pos == std::string::npos
+        ? sheet_name
+        : metadata_string.substr(0, slash_pos + 1) + sheet_name;
+    if (!out_rig->sheet.load(renderer, sheet_asset_path.c_str(), true)) {
+        return false;
+    }
+
+    std::string torso_behavior_text;
+    if (extract_object_value(text, "torso_behavior", &torso_behavior_text)) {
+        extract_float_value(torso_behavior_text, "scale_x_min", &out_rig->torso_scale_x_min);
+        extract_float_value(torso_behavior_text, "scale_x_max", &out_rig->torso_scale_x_max);
+        extract_float_value(torso_behavior_text, "scale_y_min", &out_rig->torso_scale_y_min);
+        extract_float_value(torso_behavior_text, "scale_y_max", &out_rig->torso_scale_y_max);
+    }
+
+    std::string parts_text;
+    if (!extract_object_value(text, "parts", &parts_text)) {
+        return false;
+    }
+
+    if (!parse_character_rig_part(parts_text, "head", &out_rig->head) ||
+        !parse_character_rig_part(parts_text, "torso", &out_rig->torso) ||
+        !parse_character_rig_part(parts_text, "front_upper_arm", &out_rig->front_upper_arm) ||
+        !parse_character_rig_part(parts_text, "front_forearm", &out_rig->front_forearm) ||
+        !parse_character_rig_part(parts_text, "back_upper_arm", &out_rig->back_upper_arm) ||
+        !parse_character_rig_part(parts_text, "back_forearm", &out_rig->back_forearm)) {
+        return false;
+    }
+
+    std::string torso_text;
+    std::string anchors_text;
+    if (!extract_object_value(parts_text, "torso", &torso_text) ||
+        !extract_object_value(torso_text, "anchors", &anchors_text)) {
+        return false;
+    }
+    if (!parse_point_value(anchors_text, "front_shoulder", &out_rig->torso_front_shoulder) ||
+        !parse_point_value(anchors_text, "back_shoulder", &out_rig->torso_back_shoulder) ||
+        !parse_point_value(anchors_text, "pelvis", &out_rig->torso_pelvis)) {
+        return false;
+    }
+
+    out_rig->loaded = true;
+    return true;
+}
+
 struct UiSkinScanContext {
     SDL_Renderer* renderer;
     std::unordered_map<std::string, ControlStyle>* out_skins;
 };
+
+bool load_scene_manifest(std::unordered_map<std::string, std::string>* out_paths)
+{
+    out_paths->clear();
+
+    const std::string resolved_manifest = resolve_asset_path("assets/scenes/scenes.json");
+    std::string text;
+    if (!read_text_file(resolved_manifest, &text)) {
+        return false;
+    }
+
+    std::string scenes_object;
+    if (!extract_object_value(text, "scenes", &scenes_object)) {
+        std::fprintf(stderr, "Scene manifest missing scenes object: %s\n", resolved_manifest.c_str());
+        return false;
+    }
+
+    const std::vector<std::string> scene_names = extract_object_keys(scenes_object);
+    for (size_t i = 0; i < scene_names.size(); ++i) {
+        const std::string key_token = std::string("\"") + scene_names[i] + "\"";
+        const size_t key_pos = scenes_object.find(key_token);
+        if (key_pos == std::string::npos) {
+            continue;
+        }
+
+        std::string scene_object;
+        if (!extract_object_value(scenes_object.substr(key_pos), scene_names[i].c_str(), &scene_object)) {
+            continue;
+        }
+
+        std::string relative_path;
+        if (!extract_string_value(scene_object, "path", &relative_path) || relative_path.empty()) {
+            std::fprintf(stderr, "Scene manifest entry missing path: %s\n", scene_names[i].c_str());
+            return false;
+        }
+
+        (*out_paths)[scene_names[i]] = std::string("assets/scenes/") + relative_path;
+    }
+
+    return !out_paths->empty();
+}
+
+const char* scene_asset_path(
+    const std::unordered_map<std::string, std::string>& scene_paths,
+    const char* scene_name,
+    const char* fallback_asset_path)
+{
+    const auto it = scene_paths.find(scene_name);
+    if (it == scene_paths.end()) {
+        return fallback_asset_path;
+    }
+    return it->second.c_str();
+}
 
 bool scan_ui_skin_file(UiSkinScanContext* context, const char* metadata_asset_path)
 {
@@ -272,14 +472,18 @@ bool load_all_ui_skins(SDL_Renderer* renderer, std::unordered_map<std::string, C
 
 bool Assets::load(SDL_Renderer* renderer)
 {
-    bool ok = sky.load(renderer, "assets/scenes/sky1.png", true) &&
-        backcity1.load(renderer, "assets/scenes/backcity1.png", true) &&
-        backcity2.load(renderer, "assets/scenes/backcity2.png", true) &&
-        backcity3.load(renderer, "assets/scenes/backcity3.png", true) &&
-        building.load(renderer, "assets/scenes/building1.png", true) &&
-        bench.load(renderer, "assets/scenes/bench.png", true) &&
-        market.load(renderer, "assets/scenes/market.png", true) &&
-        notebook.load(renderer, "assets/scenes/notebook.png", true) &&
+    if (!load_scene_manifest(&scene_asset_paths)) {
+        scene_asset_paths.clear();
+    }
+
+    bool ok = sky.load(renderer, scene_asset_path(scene_asset_paths, "sky", "assets/scenes/sky1.png"), true) &&
+        backcity1.load(renderer, scene_asset_path(scene_asset_paths, "backcity1", "assets/scenes/backcity1.png"), true) &&
+        backcity2.load(renderer, scene_asset_path(scene_asset_paths, "backcity2", "assets/scenes/backcity2.png"), true) &&
+        backcity3.load(renderer, scene_asset_path(scene_asset_paths, "backcity3", "assets/scenes/backcity3.png"), true) &&
+        building.load(renderer, scene_asset_path(scene_asset_paths, "building", "assets/scenes/building1.png"), true) &&
+        bench.load(renderer, scene_asset_path(scene_asset_paths, "bench", "assets/scenes/bench.png"), true) &&
+        market.load(renderer, scene_asset_path(scene_asset_paths, "market", "assets/scenes/market.png"), true) &&
+        notebook.load(renderer, scene_asset_path(scene_asset_paths, "notebook", "assets/scenes/notebook.png"), true) &&
         hero.load(renderer, "assets/characters/man1.png", true) &&
         bullet_icon.load(renderer, "assets/ui/icons/bull.png", true) &&
         load_control_style_from_metadata(renderer, "assets/ui/buttons/ui_button1.json", "button_square_bronze", &title_button_skin) &&
@@ -303,6 +507,8 @@ bool Assets::load(SDL_Renderer* renderer)
     if (!ok) {
         return false;
     }
+
+    load_character_rig_from_metadata(renderer, "assets/characters/man1_rig.json", &hero_rig);
 
     if (!load_all_ui_skins(renderer, &ui_skins)) {
         return false;
@@ -337,6 +543,15 @@ const ControlStyle* Assets::find_ui_skin(const std::string& name) const
 {
     const auto it = ui_skins.find(name);
     if (it == ui_skins.end()) {
+        return nullptr;
+    }
+    return &it->second;
+}
+
+const std::string* Assets::find_scene_asset_path(const std::string& name) const
+{
+    const auto it = scene_asset_paths.find(name);
+    if (it == scene_asset_paths.end()) {
         return nullptr;
     }
     return &it->second;

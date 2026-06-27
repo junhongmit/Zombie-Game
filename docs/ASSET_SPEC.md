@@ -23,6 +23,40 @@ This document defines the first stable storage convention for the SDL3 branch.
 - `tools/`
   Build scripts that convert loose source frames into atlases and metadata.
 
+## Scene Manifest
+
+Large scene textures should be routed through:
+
+- `assets/scenes/scenes.json`
+
+Current supported scene keys:
+
+- `sky`
+- `backcity1`
+- `backcity2`
+- `backcity3`
+- `building`
+- `bench`
+- `market`
+- `notebook`
+
+Example:
+
+```json
+{
+  "scenes": {
+    "market": {
+      "path": "market2.png"
+    },
+    "notebook": {
+      "path": "notebook2.png"
+    }
+  }
+}
+```
+
+This allows material replacement of major backgrounds and foreground plates without touching C++.
+
 ## Weapon Preview Naming
 
 Primary weapon metadata should now live in:
@@ -88,6 +122,46 @@ Planned extensions:
 - `hitbox`
 - `event markers`
 - multi-row atlas support
+
+## Character Rig Parts
+
+For the new upper-body aiming rig, character art should move away from "weapon + arm baked together" sprites and toward authored modular body parts.
+
+Recommended storage:
+
+- sprite sheet and metadata:
+  - `assets/characters/<character_id>_rig.png`
+  - `assets/characters/<character_id>_rig.json`
+
+Recommended first-pass parts:
+
+- `head`
+- `torso`
+- `front_upper_arm`
+- `front_forearm`
+- `back_upper_arm`
+- `back_forearm`
+
+Optional later parts:
+
+- `front_hand`
+- `back_hand`
+- `front_shoulder_pad`
+- `back_shoulder_pad`
+- `pelvis`
+- `vest_overlay`
+- `armor_overlay`
+
+Recommended principle:
+
+- lower body stays as a separate animated strip / atlas
+- upper body is pose-driven by the aiming rig
+- clothing variants swap upper-body sheets and keep the same anchor contract
+
+See:
+
+- `assets/characters/CHARACTER_RIG_SPEC.md`
+- `assets/characters/man1_rig.example.json`
 
 ## UI Skin Metadata
 

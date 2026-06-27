@@ -12,6 +12,34 @@ struct SDL_Renderer;
 
 namespace zg {
 
+struct CharacterRigPart {
+    SDL_Rect frame{};
+    SDL_FPoint pivot{};
+    SDL_FPoint distal_joint{};
+    bool has_distal_joint = false;
+    std::string anchor;
+    int z_order = 0;
+    float solver_length = 0.0f;
+};
+
+struct CharacterRigAsset {
+    Texture sheet;
+    bool loaded = false;
+    float torso_scale_x_min = 0.98f;
+    float torso_scale_x_max = 1.02f;
+    float torso_scale_y_min = 0.96f;
+    float torso_scale_y_max = 1.04f;
+    CharacterRigPart head;
+    CharacterRigPart torso;
+    CharacterRigPart front_upper_arm;
+    CharacterRigPart front_forearm;
+    CharacterRigPart back_upper_arm;
+    CharacterRigPart back_forearm;
+    SDL_FPoint torso_front_shoulder{};
+    SDL_FPoint torso_back_shoulder{};
+    SDL_FPoint torso_pelvis{};
+};
+
 struct Assets {
     static constexpr int kExplosionFrameCount = 15;
 
@@ -24,6 +52,7 @@ struct Assets {
     Texture market;
     Texture notebook;
     Texture hero;
+    CharacterRigAsset hero_rig;
     Texture bullet_icon;
     Texture smoke;
     Texture zombie;
@@ -53,9 +82,11 @@ struct Assets {
     Texture explosions[kExplosionFrameCount];
     SurfaceMask zombie_mask;
     std::unordered_map<std::string, ControlStyle> ui_skins;
+    std::unordered_map<std::string, std::string> scene_asset_paths;
 
     bool load(SDL_Renderer* renderer);
     const ControlStyle* find_ui_skin(const std::string& name) const;
+    const std::string* find_scene_asset_path(const std::string& name) const;
 };
 
 } // namespace zg

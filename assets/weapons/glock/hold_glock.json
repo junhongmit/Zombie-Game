@@ -1,0 +1,7 @@
+{
+  "mirrored_pair_sprite": false,
+  "hold_scale": 0.05,
+  "rear_wrist": { "x": 6, "y": 68 },
+  "front_wrist": { "x": 17, "y": 70 },
+  "muzzle": { "x": 155, "y": 26 }
+}

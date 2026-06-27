@@ -1,0 +1,54 @@
+{
+  "sheet": "man1_rig.png",
+  "character_id": "man1",
+  "torso_behavior": {
+    "mode": "rigid_with_mild_scale",
+    "scale_x_min": 0.98,
+    "scale_x_max": 1.02,
+    "scale_y_min": 0.96,
+    "scale_y_max": 1.04
+  },
+  "parts": {
+    "head": {
+      "frame": { "x": 180, "y": 0, "w": 34, "h": 31 },
+      "pivot": { "x": 188, "y": 28 },
+      "anchor": "torso_top",
+      "z_order": 50
+    },
+    "torso": {
+      "frame": { "x": 0, "y": 0, "w": 84, "h": 164 },
+      "pivot": { "x": 42, "y": 18 },
+      "anchor": "torso_top",
+      "z_order": 30,
+      "anchors": {
+        "front_shoulder": { "x": 16, "y": 21 },
+        "back_shoulder": { "x": 68, "y": 21 },
+        "pelvis": { "x": 42, "y": 118 }
+      }
+    },
+    "front_upper_arm": {
+      "frame": { "x": 214, "y": 64, "w": 34, "h": 79 },
+      "pivot": { "x": 230, "y": 72 },
+      "anchor": "front_shoulder",
+      "z_order": 60
+    },
+    "front_forearm": {
+      "frame": { "x": 214, "y": 146, "w": 28, "h": 73 },
+      "pivot": { "x": 228, "y": 154 },
+      "anchor": "front_elbow",
+      "z_order": 70
+    },
+    "back_upper_arm": {
+      "frame": { "x": 250, "y": 64, "w": 34, "h": 79 },
+      "pivot": { "x": 268, "y": 72 },
+      "anchor": "back_shoulder",
+      "z_order": 10
+    },
+    "back_forearm": {
+      "frame": { "x": 250, "y": 146, "w": 28, "h": 73 },
+      "pivot": { "x": 264, "y": 154 },
+      "anchor": "back_elbow",
+      "z_order": 20
+    }
+  }
+}

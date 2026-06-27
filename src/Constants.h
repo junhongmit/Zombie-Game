@@ -111,5 +111,12 @@ constexpr float kRigForearmLength = 8.5f;
 constexpr float kRigTorsoLength = 9.5f;
 constexpr float kRigNeckLength = 2.5f;
 constexpr float kRigHeadRadius = 4.0f;
+constexpr float kRigShortWeaponGripSpanThreshold = 6.0f;
+constexpr float kRigDesiredReachRatioShortWeapon = 0.86f;
+constexpr float kRigDesiredReachRatioLongWeapon = 0.91f;
+constexpr float kRigMinMuzzleDistanceShortWeapon = 9.0f;
+constexpr float kRigMinMuzzleDistanceLongWeapon = 11.5f;
+constexpr float kRigBaseMuzzleDistanceShortWeapon = 11.0f;
+constexpr float kRigBaseMuzzleDistanceLongWeapon = 13.5f;
 
 } // namespace zg

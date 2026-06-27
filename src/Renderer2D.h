@@ -38,6 +38,11 @@ public:
         bool show_player,
         float player_alpha,
         const Camera& camera);
+    void render_rig_preview(
+        const Assets& assets,
+        const Player& player,
+        const WeaponDefinition* weapon_definition,
+        const Camera& camera);
     void end_frame();
     SDL_FRect presentation_rect() const;
 
@@ -52,7 +57,9 @@ private:
     void render_smoke_particle(const Texture& texture, float x, float y, float size, float alpha, const Camera& camera);
     void render_bullet(const Bullet& bullet, const Camera& camera);
     void render_weapon(const Texture& weapon, const WeaponDefinition& definition, const Player& player, float alpha, const Camera& camera);
+    void render_weapon_with_rig(const Texture& weapon, const WeaponDefinition& definition, const UpperBodyAimingRigState& rig, float alpha, const Camera& camera);
     void render_player(const Texture& hero, const Player& player, float alpha, const Camera& camera);
+    void render_player_rig(const Assets& assets, const Player& player, const WeaponDefinition* weapon_definition, float alpha, const Camera& camera, bool render_weapon_sprite = true);
     void render_aiming_rig_debug(const UpperBodyAimingRigState& rig, const Camera& camera);
     void render_zombie(const Texture& texture, const Zombie& zombie, const Camera& camera);
     SDL_Renderer* renderer_;

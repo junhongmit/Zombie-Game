@@ -1,0 +1,28 @@
+{
+  "scenes": {
+    "sky": {
+      "path": "sky1.png"
+    },
+    "backcity1": {
+      "path": "backcity1.png"
+    },
+    "backcity2": {
+      "path": "backcity2.png"
+    },
+    "backcity3": {
+      "path": "backcity3.png"
+    },
+    "building": {
+      "path": "building1.png"
+    },
+    "bench": {
+      "path": "bench.png"
+    },
+    "market": {
+      "path": "market.png"
+    },
+    "notebook": {
+      "path": "notebook.png"
+    }
+  }
+}

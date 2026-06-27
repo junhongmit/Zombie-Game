@@ -23,6 +23,7 @@ enum class TitleMenuAction {
     Start,
     Loadout,
     Market,
+    RigLab,
     Exit
 };
 

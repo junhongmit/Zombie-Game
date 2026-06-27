@@ -348,6 +348,60 @@ bool json_bool(const JsonValue& object, const char* key, bool fallback = false)
     return value != nullptr && value->is_bool() ? value->bool_value : fallback;
 }
 
+WeaponDefinition::LocalPoint json_point(const JsonValue& object, const char* key, WeaponDefinition::LocalPoint fallback = {})
+{
+    const JsonValue* value = json_member(object, key);
+    if (value == nullptr || !value->is_object()) {
+        return fallback;
+    }
+
+    WeaponDefinition::LocalPoint point = fallback;
+    point.x = json_float(*value, "x", fallback.x);
+    point.y = json_float(*value, "y", fallback.y);
+    return point;
+}
+
+bool load_weapon_hold_metadata(const std::string& metadata_path, WeaponDefinition* definition)
+{
+    if (definition == nullptr || metadata_path.empty()) {
+        return false;
+    }
+
+    const std::string resolved = resolve_asset_path(metadata_path.c_str());
+    std::FILE* file = std::fopen(resolved.c_str(), "rb");
+    if (file == nullptr) {
+        return false;
+    }
+    std::fseek(file, 0, SEEK_END);
+    const long size = std::ftell(file);
+    std::rewind(file);
+    if (size <= 0) {
+        std::fclose(file);
+        return false;
+    }
+
+    std::string text;
+    text.resize(static_cast<size_t>(size));
+    const size_t read = std::fread(&text[0], 1, text.size(), file);
+    std::fclose(file);
+    if (read != text.size()) {
+        return false;
+    }
+
+    JsonValue root;
+    JsonParser parser(text);
+    if (!parser.parse(&root) || !root.is_object()) {
+        return false;
+    }
+
+    definition->rear_wrist = json_point(root, "rear_wrist", definition->rear_wrist);
+    definition->front_wrist = json_point(root, "front_wrist", definition->front_wrist);
+    definition->muzzle = json_point(root, "muzzle", definition->muzzle);
+    definition->mirrored_pair_sprite = json_bool(root, "mirrored_pair_sprite", definition->mirrored_pair_sprite);
+    definition->hold_scale = json_float(root, "hold_scale", definition->hold_scale);
+    return true;
+}
+
 std::string derive_preview_image_path(const std::string& name)
 {
     const std::string lowered = lower_copy(name);
@@ -485,11 +539,20 @@ bool load_weapon_catalog_json(SDL_Renderer* renderer, const std::string& resolve
         WeaponDefinition current;
         current.name = json_string(item, "name");
         current.image_path = json_string(item, "image_path");
+        current.hold_metadata_path = json_string(item, "hold_metadata_path");
         current.preview_image_path = json_string(item, "preview_image_path");
         current.icon_image_path = json_string(item, "icon_image_path");
         current.ui_card_template = json_string(item, "ui_card_template", "default");
+        current.mirrored_pair_sprite = json_bool(item, "mirrored_pair_sprite", true);
+        current.hold_scale = json_float(item, "hold_scale", 1.0f);
         current.route_x = json_int(item, "route_x", 4);
         current.route_y = json_int(item, "route_y", 3);
+        current.rear_wrist = json_point(item, "rear_wrist", WeaponDefinition::LocalPoint{
+            static_cast<float>(current.route_x),
+            static_cast<float>(current.route_y)
+        });
+        current.front_wrist = json_point(item, "front_wrist", current.rear_wrist);
+        current.muzzle = json_point(item, "muzzle", current.front_wrist);
         current.type = json_int(item, "type", 101) == 102 ? WeaponType::Grenade : WeaponType::Gun;
         current.magazine_size = json_int(item, "magazine_size", 0);
         current.damage = json_int(item, "damage", 0);
@@ -551,8 +614,23 @@ bool finalize_weapon_definition(SDL_Renderer* renderer, WeaponDefinition* defini
         definition->initial_reserve = definition->magazine_size * 5;
     }
     apply_default_feedback(definition);
+    if (!definition->hold_metadata_path.empty()) {
+        load_weapon_hold_metadata(definition->hold_metadata_path, definition);
+    }
     if (!definition->texture.load(renderer, definition->image_path.c_str(), true)) {
         return false;
+    }
+    const float frame_width_pixels = definition->mirrored_pair_sprite
+        ? definition->texture.width() * 0.5f
+        : static_cast<float>(definition->texture.width());
+    const float frame_width = frame_width_pixels * definition->hold_scale;
+    if (definition->front_wrist.x == 0.0f && definition->front_wrist.y == 0.0f) {
+        definition->front_wrist.x = std::max(3.6f, frame_width * 0.30f);
+        definition->front_wrist.y = definition->rear_wrist.y + 0.7f;
+    }
+    if (definition->muzzle.x == 0.0f && definition->muzzle.y == 0.0f) {
+        definition->muzzle.x = std::max(definition->front_wrist.x + 4.0f, frame_width - 1.0f);
+        definition->muzzle.y = definition->rear_wrist.y - 0.4f;
     }
     load_optional_preview_texture(renderer, definition);
     load_optional_icon_texture(renderer, definition);
@@ -651,8 +729,22 @@ bool WeaponCatalog::load(SDL_Renderer* renderer, const char* path)
             current.shoot_sound_path = value;
         } else if (key == "routex") {
             current.route_x = parse_int(value);
+            current.rear_wrist.x = static_cast<float>(current.route_x);
         } else if (key == "routey") {
             current.route_y = parse_int(value);
+            current.rear_wrist.y = static_cast<float>(current.route_y);
+        } else if (key == "rearwristx") {
+            current.rear_wrist.x = parse_float(value);
+        } else if (key == "rearwristy") {
+            current.rear_wrist.y = parse_float(value);
+        } else if (key == "frontwristx") {
+            current.front_wrist.x = parse_float(value);
+        } else if (key == "frontwristy") {
+            current.front_wrist.y = parse_float(value);
+        } else if (key == "muzzlex") {
+            current.muzzle.x = parse_float(value);
+        } else if (key == "muzzley") {
+            current.muzzle.y = parse_float(value);
         } else if (key == "shakeduration") {
             current.shake_duration = parse_float(value);
         } else if (key == "shakemagnitude") {

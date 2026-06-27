@@ -17,14 +17,31 @@ enum class WeaponType {
 };
 
 struct WeaponDefinition {
+    struct LocalPoint {
+        float x = 0.0f;
+        float y = 0.0f;
+
+        LocalPoint() = default;
+        LocalPoint(float x_value, float y_value)
+            : x(x_value), y(y_value)
+        {
+        }
+    };
+
     std::string name;
     std::string image_path;
+    std::string hold_metadata_path;
     std::string preview_image_path;
     std::string icon_image_path;
     std::string ui_card_template = "default";
     std::string shoot_sound_path;
+    bool mirrored_pair_sprite = true;
+    float hold_scale = 1.0f;
     int route_x = 4;
     int route_y = 3;
+    LocalPoint rear_wrist{};
+    LocalPoint front_wrist{};
+    LocalPoint muzzle{};
     WeaponType type = WeaponType::Gun;
     int magazine_size = 0;
     int damage = 0;

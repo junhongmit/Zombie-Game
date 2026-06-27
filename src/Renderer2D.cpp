@@ -55,6 +55,44 @@ float scale_world_length(float value, const Camera& camera, const SDL_FRect& pre
     return value * world_zoom(camera, presentation_rect);
 }
 
+SDL_FPoint resolve_rig_anchor(const UpperBodyAimingRigState& rig, const std::string& anchor)
+{
+    if (anchor == "torso_top") {
+        return rig.torso_top;
+    }
+    if (anchor == "torso_base") {
+        return rig.torso_base;
+    }
+    if (anchor == "pelvis") {
+        return rig.pelvis;
+    }
+    if (anchor == "head_center") {
+        return rig.head_center;
+    }
+    if (anchor == "front_shoulder") {
+        return rig.front_shoulder;
+    }
+    if (anchor == "back_shoulder") {
+        return rig.back_shoulder;
+    }
+    if (anchor == "front_elbow") {
+        return rig.front_arm.elbow;
+    }
+    if (anchor == "back_elbow") {
+        return rig.back_arm.elbow;
+    }
+    if (anchor == "rear_grip") {
+        return rig.rear_grip;
+    }
+    if (anchor == "front_grip") {
+        return rig.front_grip;
+    }
+    if (anchor == "muzzle") {
+        return rig.muzzle;
+    }
+    return rig.torso_top;
+}
+
 void render_texture_mirrored_to_rect(SDL_Renderer* renderer, const Texture& texture, const SDL_FRect& dst_rect)
 {
     if (!texture.valid() || dst_rect.w <= 0.0f || dst_rect.h <= 0.0f) {
@@ -208,15 +246,18 @@ void Renderer2D::render_scene(
     for (int i = 0; i < explosion_count; ++i) {
         render_explosion(assets, explosions[i], camera);
     }
-    if (show_player) {
+    const bool use_rig_player = show_player && assets.hero_rig.loaded && weapon_definition != nullptr;
+    if (use_rig_player) {
+        render_player_rig(assets, player, weapon_definition, player_alpha, camera);
+    } else if (show_player) {
         render_player(assets.hero, player, player_alpha, camera);
-    }
-    if (show_player && weapon_definition != nullptr) {
-        render_weapon(weapon_definition->texture, *weapon_definition, player, player_alpha, camera);
+        if (weapon_definition != nullptr) {
+            render_weapon(weapon_definition->texture, *weapon_definition, player, player_alpha, camera);
+        }
     }
     if (show_player && kEnableAimingRigDebug) {
         UpperBodyAimingRig rig_solver;
-        render_aiming_rig_debug(rig_solver.solve(player, weapon_definition), camera);
+        render_aiming_rig_debug(rig_solver.solve(player, weapon_definition, &assets.hero_rig), camera);
     }
 
     for (int i = 0; i < effects.smoke_particle_count(); ++i) {
@@ -228,6 +269,43 @@ void Renderer2D::render_scene(
         const float size = kSmokeBaseSize + kSmokeGrowthSize * t;
         const float alpha = 1.0f - t;
         render_smoke_particle(assets.smoke, particle.x, particle.y, size, alpha, camera);
+    }
+}
+
+void Renderer2D::render_rig_preview(
+    const Assets& assets,
+    const Player& player,
+    const WeaponDefinition* weapon_definition,
+    const Camera& camera)
+{
+    SDL_SetRenderDrawColor(renderer_, 17, 18, 22, 255);
+    SDL_RenderFillRect(renderer_, &presentation_rect_);
+
+    SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(renderer_, 86, 70, 48, 48);
+    const float grid = scale_world_length(8.0f, camera, presentation_rect_);
+    if (grid > 1.0f) {
+        for (float x = std::fmod(presentation_rect_.x - world_to_screen_x(0.0f, camera, presentation_rect_), grid);
+             x < presentation_rect_.w;
+             x += grid) {
+            SDL_RenderLine(renderer_, presentation_rect_.x + x, presentation_rect_.y, presentation_rect_.x + x, presentation_rect_.y + presentation_rect_.h);
+        }
+        for (float y = std::fmod(presentation_rect_.y - world_to_screen_y(0.0f, camera, presentation_rect_), grid);
+             y < presentation_rect_.h;
+             y += grid) {
+            SDL_RenderLine(renderer_, presentation_rect_.x, presentation_rect_.y + y, presentation_rect_.x + presentation_rect_.w, presentation_rect_.y + y);
+        }
+    }
+
+    SDL_SetRenderDrawColor(renderer_, 176, 126, 82, 120);
+    const float floor_y = world_to_screen_y(player.y + 33.0f, camera, presentation_rect_);
+    SDL_RenderLine(renderer_, presentation_rect_.x, floor_y, presentation_rect_.x + presentation_rect_.w, floor_y);
+    SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_NONE);
+
+    render_player_rig(assets, player, weapon_definition, 1.0f, camera, true);
+    if (assets.hero_rig.loaded) {
+        UpperBodyAimingRig rig_solver;
+        render_aiming_rig_debug(rig_solver.solve(player, weapon_definition, &assets.hero_rig), camera);
     }
 }
 
@@ -435,17 +513,24 @@ void Renderer2D::render_player(const Texture& hero, const Player& player, float 
 
 void Renderer2D::render_weapon(const Texture& weapon, const WeaponDefinition& definition, const Player& player, float alpha, const Camera& camera)
 {
-    const float frame_width = weapon.width() * 0.5f;
-    const float frame_height = weapon.height();
-    const SDL_FRect src{0.0f, 0.0f, frame_width, frame_height};
+    const float frame_width_pixels = definition.mirrored_pair_sprite
+        ? weapon.width() * 0.5f
+        : static_cast<float>(weapon.width());
+    const float frame_height_pixels = static_cast<float>(weapon.height());
+    const float frame_width = frame_width_pixels * definition.hold_scale;
+    const float frame_height = frame_height_pixels * definition.hold_scale;
+    const SDL_FRect src{0.0f, 0.0f, frame_width_pixels, frame_height_pixels};
 
     const float pivot_world_x = player.x + (player.facing_right ? 8.0f : 10.0f);
     const float pivot_world_y = player.y + 13.0f;
     const float pivot_screen_x = std::round(world_to_screen_x(pivot_world_x, camera, presentation_rect_));
     const float pivot_screen_y = std::round(world_to_screen_y(pivot_world_y, camera, presentation_rect_));
+    const WeaponDefinition::LocalPoint wrist = player.facing_right
+        ? definition.rear_wrist
+        : WeaponDefinition::LocalPoint{frame_width_pixels - definition.rear_wrist.x, definition.rear_wrist.y};
     const SDL_FPoint pivot{
-        scale_world_length(player.facing_right ? static_cast<float>(definition.route_x) : frame_width - static_cast<float>(definition.route_x), camera, presentation_rect_),
-        scale_world_length(static_cast<float>(definition.route_y), camera, presentation_rect_)
+        scale_world_length(wrist.x * definition.hold_scale, camera, presentation_rect_),
+        scale_world_length(wrist.y * definition.hold_scale, camera, presentation_rect_)
     };
     const SDL_FRect dst{
         pivot_screen_x - pivot.x,
@@ -460,6 +545,132 @@ void Renderer2D::render_weapon(const Texture& weapon, const WeaponDefinition& de
     SDL_SetTextureAlphaMod(weapon.get(), static_cast<Uint8>(std::round(clamp_float(alpha, 0.0f, 1.0f) * 255.0f)));
     SDL_RenderTextureRotated(renderer_, weapon.get(), &src, &dst, angle_degrees, &pivot, flip);
     SDL_SetTextureAlphaMod(weapon.get(), 255);
+}
+
+void Renderer2D::render_weapon_with_rig(const Texture& weapon, const WeaponDefinition& definition, const UpperBodyAimingRigState& rig, float alpha, const Camera& camera)
+{
+    const float frame_width_pixels = definition.mirrored_pair_sprite
+        ? weapon.width() * 0.5f
+        : static_cast<float>(weapon.width());
+    const float frame_height_pixels = static_cast<float>(weapon.height());
+    const float frame_width = frame_width_pixels * definition.hold_scale;
+    const float frame_height = frame_height_pixels * definition.hold_scale;
+    const SDL_FRect src{0.0f, 0.0f, frame_width_pixels, frame_height_pixels};
+    const float pivot_screen_x = std::round(world_to_screen_x(rig.rear_grip.x, camera, presentation_rect_));
+    const float pivot_screen_y = std::round(world_to_screen_y(rig.rear_grip.y, camera, presentation_rect_));
+    const WeaponDefinition::LocalPoint wrist = rig.facing_right
+        ? definition.rear_wrist
+        : WeaponDefinition::LocalPoint{frame_width_pixels - definition.rear_wrist.x, definition.rear_wrist.y};
+    const SDL_FPoint pivot{
+        scale_world_length(wrist.x * definition.hold_scale, camera, presentation_rect_),
+        scale_world_length(wrist.y * definition.hold_scale, camera, presentation_rect_)
+    };
+    const SDL_FRect dst{
+        pivot_screen_x - pivot.x,
+        pivot_screen_y - pivot.y,
+        scale_world_length(frame_width, camera, presentation_rect_),
+        scale_world_length(frame_height, camera, presentation_rect_)
+    };
+    const double angle_degrees = rig.facing_right
+        ? -static_cast<double>(rig.weapon_rotation_deg)
+        : 180.0 - static_cast<double>(rig.weapon_rotation_deg);
+    const SDL_FlipMode flip = rig.facing_right ? SDL_FLIP_NONE : SDL_FLIP_HORIZONTAL;
+    const SDL_FPoint center{dst.w * 0.5f, dst.h * 0.5f};
+    SDL_SetTextureAlphaMod(weapon.get(), static_cast<Uint8>(std::round(clamp_float(alpha, 0.0f, 1.0f) * 255.0f)));
+    SDL_RenderTextureRotated(renderer_, weapon.get(), &src, &dst, angle_degrees, &pivot, flip);
+    SDL_SetTextureAlphaMod(weapon.get(), 255);
+}
+
+void Renderer2D::render_player_rig(const Assets& assets, const Player& player, const WeaponDefinition* weapon_definition, float alpha, const Camera& camera, bool render_weapon_sprite)
+{
+    if (!assets.hero_rig.loaded || weapon_definition == nullptr) {
+        render_player(assets.hero, player, alpha, camera);
+        if (render_weapon_sprite && weapon_definition != nullptr) {
+            render_weapon(weapon_definition->texture, *weapon_definition, player, alpha, camera);
+        }
+        return;
+    }
+
+    UpperBodyAimingRig rig_solver;
+    const UpperBodyAimingRigState rig = rig_solver.solve(player, weapon_definition, &assets.hero_rig);
+    if (!rig.valid) {
+        render_player(assets.hero, player, alpha, camera);
+        if (render_weapon_sprite) {
+            render_weapon(weapon_definition->texture, *weapon_definition, player, alpha, camera);
+        }
+        return;
+    }
+
+    const auto render_part = [this, &camera, alpha, &rig](const Texture& sheet, const CharacterRigPart& part, SDL_FPoint world_anchor, float angle_deg, float scale_x, float scale_y) {
+        const SDL_FRect src{
+            static_cast<float>(part.frame.x),
+            static_cast<float>(part.frame.y),
+            static_cast<float>(part.frame.w),
+            static_cast<float>(part.frame.h)
+        };
+        const float anchor_screen_x = std::round(world_to_screen_x(world_anchor.x, camera, presentation_rect_));
+        const float anchor_screen_y = std::round(world_to_screen_y(world_anchor.y, camera, presentation_rect_));
+        const bool flip_x = !rig.facing_right;
+        const SDL_FPoint pivot{
+            (flip_x ? (static_cast<float>(part.frame.w) - part.pivot.x) : part.pivot.x) * scale_x,
+            part.pivot.y * scale_y
+        };
+        const SDL_FRect dst{
+            anchor_screen_x - pivot.x,
+            anchor_screen_y - pivot.y,
+            part.frame.w * scale_x,
+            part.frame.h * scale_y
+        };
+        SDL_SetTextureAlphaMod(sheet.get(), static_cast<Uint8>(std::round(clamp_float(alpha, 0.0f, 1.0f) * 255.0f)));
+        SDL_RenderTextureRotated(renderer_, sheet.get(), &src, &dst, angle_deg, &pivot, flip_x ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE);
+        SDL_SetTextureAlphaMod(sheet.get(), 255);
+    };
+
+    const auto screen_segment_angle_deg = [](SDL_FPoint a, SDL_FPoint b) {
+        const float dx = b.x - a.x;
+        const float dy = b.y - a.y;
+        return std::atan2(dy, dx) * 180.0f / 3.1415926535f;
+    };
+    const auto part_rotation_deg = [&screen_segment_angle_deg](const CharacterRigPart& part, SDL_FPoint a, SDL_FPoint b, bool flip_x) {
+        const float world_angle = screen_segment_angle_deg(a, b);
+        SDL_FPoint rest_dir{};
+        if (part.has_distal_joint) {
+            rest_dir = SDL_FPoint{
+                (flip_x ? (part.pivot.x - part.distal_joint.x) : (part.distal_joint.x - part.pivot.x)),
+                part.distal_joint.y - part.pivot.y
+            };
+        } else {
+            rest_dir = SDL_FPoint{0.0f, 1.0f};
+        }
+        const float rest_angle = std::atan2(rest_dir.y, rest_dir.x) * 180.0f / 3.1415926535f;
+        return world_angle - rest_angle;
+    };
+
+    const float torso_asset_length = std::max(1.0f, assets.hero_rig.torso_pelvis.y - assets.hero_rig.torso.pivot.y);
+    const float torso_world_length = std::max(0.001f, rig.pelvis.y - rig.torso_top.y);
+    const float rig_pixel_to_world = torso_world_length / torso_asset_length;
+    const float rig_screen_scale = scale_world_length(rig_pixel_to_world, camera, presentation_rect_);
+
+    const float torso_angle = screen_segment_angle_deg(rig.torso_top, rig.pelvis) - 90.0f;
+    const float aim_t = std::min(1.0f, std::fabs(rig.aim_local_deg) / 75.0f);
+    const float torso_scale_x = rig_screen_scale * (1.0f + ((rig.aim_local_deg >= 0.0f ? assets.hero_rig.torso_scale_x_max : assets.hero_rig.torso_scale_x_min) - 1.0f) * aim_t);
+    const float torso_scale_y = rig_screen_scale * (1.0f + ((rig.aim_local_deg >= 0.0f ? assets.hero_rig.torso_scale_y_max : assets.hero_rig.torso_scale_y_min) - 1.0f) * aim_t);
+    const float head_angle = rig.head_rotation_deg;
+    const bool flip_x = !rig.facing_right;
+    const float front_upper_angle = part_rotation_deg(assets.hero_rig.front_upper_arm, rig.front_arm.shoulder, rig.front_arm.elbow, flip_x);
+    const float front_forearm_angle = part_rotation_deg(assets.hero_rig.front_forearm, rig.front_arm.elbow, rig.front_arm.hand, flip_x);
+    const float back_upper_angle = part_rotation_deg(assets.hero_rig.back_upper_arm, rig.back_arm.shoulder, rig.back_arm.elbow, flip_x);
+    const float back_forearm_angle = part_rotation_deg(assets.hero_rig.back_forearm, rig.back_arm.elbow, rig.back_arm.hand, flip_x);
+
+    render_part(assets.hero_rig.sheet, assets.hero_rig.back_upper_arm, resolve_rig_anchor(rig, assets.hero_rig.back_upper_arm.anchor), back_upper_angle, rig_screen_scale, rig_screen_scale);
+    render_part(assets.hero_rig.sheet, assets.hero_rig.back_forearm, resolve_rig_anchor(rig, assets.hero_rig.back_forearm.anchor), back_forearm_angle, rig_screen_scale, rig_screen_scale);
+    render_part(assets.hero_rig.sheet, assets.hero_rig.torso, resolve_rig_anchor(rig, assets.hero_rig.torso.anchor), torso_angle, torso_scale_x, torso_scale_y);
+    render_part(assets.hero_rig.sheet, assets.hero_rig.head, resolve_rig_anchor(rig, assets.hero_rig.head.anchor), head_angle, rig_screen_scale, rig_screen_scale);
+    if (render_weapon_sprite) {
+        render_weapon_with_rig(weapon_definition->texture, *weapon_definition, rig, alpha, camera);
+    }
+    render_part(assets.hero_rig.sheet, assets.hero_rig.front_upper_arm, resolve_rig_anchor(rig, assets.hero_rig.front_upper_arm.anchor), front_upper_angle, rig_screen_scale, rig_screen_scale);
+    render_part(assets.hero_rig.sheet, assets.hero_rig.front_forearm, resolve_rig_anchor(rig, assets.hero_rig.front_forearm.anchor), front_forearm_angle, rig_screen_scale, rig_screen_scale);
 }
 
 void Renderer2D::render_aiming_rig_debug(const UpperBodyAimingRigState& rig, const Camera& camera)
@@ -478,6 +689,28 @@ void Renderer2D::render_aiming_rig_debug(const UpperBodyAimingRigState& rig, con
         SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
         SDL_SetRenderDrawColor(renderer_, r, g, bl, alpha);
         SDL_RenderLine(renderer_, a.x, a.y, b.x, b.y);
+    };
+    const auto draw_dashed_segment = [this](SDL_FPoint a, SDL_FPoint b, float dash_len, float gap_len, Uint8 r, Uint8 g, Uint8 bl, Uint8 alpha) {
+        SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(renderer_, r, g, bl, alpha);
+        const SDL_FPoint delta{b.x - a.x, b.y - a.y};
+        const float total_len = std::sqrt(delta.x * delta.x + delta.y * delta.y);
+        if (total_len <= 0.001f) {
+            return;
+        }
+        const SDL_FPoint dir{delta.x / total_len, delta.y / total_len};
+        float cursor = 0.0f;
+        while (cursor < total_len) {
+            const float start = cursor;
+            const float end = std::min(total_len, cursor + dash_len);
+            SDL_RenderLine(
+                renderer_,
+                a.x + dir.x * start,
+                a.y + dir.y * start,
+                a.x + dir.x * end,
+                a.y + dir.y * end);
+            cursor += dash_len + gap_len;
+        }
     };
     const auto draw_marker = [this](SDL_FPoint p, float radius, Uint8 r, Uint8 g, Uint8 bl, Uint8 alpha) {
         SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_BLEND);
@@ -502,8 +735,22 @@ void Renderer2D::render_aiming_rig_debug(const UpperBodyAimingRigState& rig, con
     const SDL_FPoint rear_grip = to_screen(rig.rear_grip);
     const SDL_FPoint front_grip = to_screen(rig.front_grip);
     const SDL_FPoint muzzle = to_screen(rig.muzzle);
+    const SDL_FPoint aim_target = to_screen(rig.aim_target);
     const SDL_FPoint front_elbow = to_screen(rig.front_arm.elbow);
     const SDL_FPoint back_elbow = to_screen(rig.back_arm.elbow);
+    const float weapon_angle_rad = rig.weapon_rotation_deg * 3.1415926535f / 180.0f;
+    const SDL_FPoint bore_forward{
+        std::cos(weapon_angle_rad),
+        -std::sin(weapon_angle_rad)
+    };
+    const SDL_FPoint bore_start{
+        muzzle.x - bore_forward.x * 18.0f,
+        muzzle.y - bore_forward.y * 18.0f
+    };
+    const SDL_FPoint bore_end{
+        muzzle.x + bore_forward.x * 28.0f,
+        muzzle.y + bore_forward.y * 28.0f
+    };
 
     draw_segment(pelvis, torso_base, 182, 182, 200, 220);
     draw_segment(torso_base, torso_top, 220, 220, 235, 220);
@@ -515,7 +762,9 @@ void Renderer2D::render_aiming_rig_debug(const UpperBodyAimingRigState& rig, con
     draw_segment(back_elbow, front_grip, 130, 220, 255, 230);
 
     draw_segment(rear_grip, front_grip, 255, 235, 120, 220);
-    draw_segment(front_grip, muzzle, 255, 110, 110, 220);
+    draw_segment(front_grip, muzzle, 255, 160, 120, 150);
+    draw_segment(bore_start, bore_end, 255, 90, 90, 240);
+    draw_dashed_segment(muzzle, aim_target, 5.0f, 4.0f, 255, 120, 160, 210);
 
     draw_segment(front_shoulder, front_elbow_hint, 130, 90, 40, 120);
     draw_segment(back_shoulder, back_elbow_hint, 40, 90, 130, 120);
@@ -530,6 +779,15 @@ void Renderer2D::render_aiming_rig_debug(const UpperBodyAimingRigState& rig, con
     draw_marker(rear_grip, 2.0f, 255, 230, 120, 255);
     draw_marker(front_grip, 2.0f, 255, 230, 120, 255);
     draw_marker(muzzle, 1.5f, 255, 110, 110, 255);
+    draw_segment(
+        SDL_FPoint{aim_target.x - 5.0f, aim_target.y},
+        SDL_FPoint{aim_target.x + 5.0f, aim_target.y},
+        140, 255, 180, 235);
+    draw_segment(
+        SDL_FPoint{aim_target.x, aim_target.y - 5.0f},
+        SDL_FPoint{aim_target.x, aim_target.y + 5.0f},
+        140, 255, 180, 235);
+    draw_marker(aim_target, 1.0f, 140, 255, 180, 255);
     SDL_SetRenderDrawBlendMode(renderer_, SDL_BLENDMODE_NONE);
 }
 
